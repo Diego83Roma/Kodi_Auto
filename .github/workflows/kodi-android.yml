@@ -57,12 +57,18 @@ jobs:
           git clone --depth 1 \
             https://github.com/xbmc/xbmc.git kodi
 
-      - name: Set Kodi Auto package ID
+      - name: Set Kodi Auto app identity
         run: |
+          sed -i 's/^APP_NAME Kodi$/APP_NAME Kodi Auto/' kodi/version.txt
           sed -i 's/^APP_PACKAGE .*/APP_PACKAGE it.kodiauto.media/' kodi/version.txt
 
-          echo "Controllo package ID:"
-          grep '^APP_PACKAGE ' kodi/version.txt
+          echo "Controllo identità Kodi Auto:"
+          grep -E '^(APP_NAME|APP_PACKAGE) ' kodi/version.txt
+
+          if ! grep -q '^APP_NAME Kodi Auto$' kodi/version.txt; then
+            echo "ERROR: nome app non modificato correttamente"
+            exit 1
+          fi
 
           if ! grep -q '^APP_PACKAGE it\.kodiauto\.media$' kodi/version.txt; then
             echo "ERROR: package ID non modificato correttamente"
