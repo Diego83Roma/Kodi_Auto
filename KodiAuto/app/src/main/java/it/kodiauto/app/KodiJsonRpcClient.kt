@@ -31,16 +31,15 @@ internal object KodiJsonRpcClient {
         Socket().use { socket ->
             socket.connect(InetSocketAddress(HOST, PORT), 1500)
             socket.soTimeout = 3500
-            OutputStreamWriter(socket.getOutputStream(), Charsets.UTF_8).use { writer ->
-                writer.write(request.toString())
-                writer.flush()
-                val response = readJsonObject(socket.getInputStream())
-                val json = JSONObject(response)
-                if (json.has("error")) {
-                    throw IllegalStateException(json.getJSONObject("error").optString("message", "Errore JSON-RPC"))
-                }
-                return json.optJSONObject("result") ?: JSONObject()
+            val writer = OutputStreamWriter(socket.getOutputStream(), Charsets.UTF_8)
+            writer.write(request.toString())
+            writer.flush()
+            val response = readJsonObject(socket.getInputStream())
+            val json = JSONObject(response)
+            if (json.has("error")) {
+                throw IllegalStateException(json.getJSONObject("error").optString("message", "Errore JSON-RPC"))
             }
+            return json.optJSONObject("result") ?: JSONObject()
         }
     }
 
