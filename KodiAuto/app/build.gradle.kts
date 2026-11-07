@@ -1,4 +1,3 @@
-
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
@@ -15,8 +14,8 @@ android {
         applicationId = "it.kodiauto.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 1
-        versionName = "0.1.0"
+        versionCode = 2
+        versionName = "0.2.0"
     }
 
     buildFeatures {
@@ -48,6 +47,8 @@ dependencies {
 
     implementation("androidx.media3:media3-exoplayer:1.8.0")
     implementation("androidx.media3:media3-ui:1.8.0")
+    implementation("androidx.media3:media3-session:1.8.0")
+    implementation("com.google.guava:guava:33.3.1-android")
 
     debugImplementation("androidx.compose.ui:ui-tooling")
 }
