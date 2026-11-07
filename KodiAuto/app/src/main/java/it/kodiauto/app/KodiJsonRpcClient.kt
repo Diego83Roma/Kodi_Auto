@@ -48,8 +48,7 @@ internal object KodiJsonRpcClient {
         val params = JSONObject()
             .put("properties", JSONArray().put("title").put("artist").put("year").put("thumbnail"))
             .put("limits", JSONObject().put("start", 0).put("end", 200))
-        return call("AudioLibrary.GetAlbums", params).optJSONObject("albums")
-            ?.optJSONArray("albums") ?: JSONArray()
+        return call("AudioLibrary.GetAlbums", params).optJSONArray("albums") ?: JSONArray()
     }
 
     fun songs(albumId: Int): JSONArray {
@@ -57,16 +56,14 @@ internal object KodiJsonRpcClient {
             .put("albumid", albumId)
             .put("properties", JSONArray().put("title").put("artist").put("album").put("duration").put("file"))
             .put("limits", JSONObject().put("start", 0).put("end", 300))
-        return call("AudioLibrary.GetSongs", params).optJSONObject("songs")
-            ?.optJSONArray("songs") ?: JSONArray()
+        return call("AudioLibrary.GetSongs", params).optJSONArray("songs") ?: JSONArray()
     }
 
     fun movies(): JSONArray {
         val params = JSONObject()
             .put("properties", JSONArray().put("title").put("year").put("thumbnail").put("file").put("runtime"))
             .put("limits", JSONObject().put("start", 0).put("end", 200))
-        return call("VideoLibrary.GetMovies", params).optJSONObject("movies")
-            ?.optJSONArray("movies") ?: JSONArray()
+        return call("VideoLibrary.GetMovies", params).optJSONArray("movies") ?: JSONArray()
     }
 
     private fun readJsonObject(input: java.io.InputStream): String {
