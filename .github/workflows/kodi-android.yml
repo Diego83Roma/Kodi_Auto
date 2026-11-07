@@ -72,6 +72,40 @@ jobs:
           grep -q '^APP_NAME Kodi$' kodi/version.txt
           grep -q '^APP_PACKAGE it\.kodiauto\.media$' kodi/version.txt
           grep -q 'Kodi Auto' kodi/tools/android/packaging/xbmc/strings.xml.in
+      - name: Apply Kodi Auto gold and black launcher icon
+        working-directory: kodi/tools/android/packaging/xbmc/res/drawable
+        run: |
+          cat > ic_launcher_background.xml <<'EOF'
+          <vector xmlns:android="http://schemas.android.com/apk/res/android"
+              android:width="108dp" android:height="108dp"
+              android:viewportWidth="256" android:viewportHeight="256">
+            <path android:pathData="M0,0h256v256h-256z" android:fillColor="#FF080B12"/>
+            <path android:pathData="M0,196h256v60h-256z" android:fillColor="#FF111827"/>
+          </vector>
+          EOF
+          cat > ic_launcher_foreground.xml <<'EOF'
+          <vector xmlns:android="http://schemas.android.com/apk/res/android"
+              android:width="108dp" android:height="108dp"
+              android:viewportWidth="256" android:viewportHeight="256">
+            <path android:pathData="M52,91 L65,27 L103,57 L128,15 L153,57 L191,27 L204,91 Z"
+                android:fillColor="#FFFFD45A" android:strokeColor="#FFB77A18"
+                android:strokeWidth="5" android:strokeLineJoin="round"/>
+            <path android:pathData="M69,96 Q128,73 187,96 L178,169 Q128,213 78,169 Z"
+                android:fillColor="#FFE9B84C" android:strokeColor="#FF8E5A16"
+                android:strokeWidth="6"/>
+            <path android:pathData="M94,125 Q105,113 116,125 M140,125 Q151,113 162,125"
+                android:fillColor="#00000000" android:strokeColor="#FF17130D"
+                android:strokeWidth="8" android:strokeLineCap="round"/>
+            <path android:pathData="M105,158 Q128,174 151,158"
+                android:fillColor="#00000000" android:strokeColor="#FF17130D"
+                android:strokeWidth="7" android:strokeLineCap="round"/>
+            <path android:pathData="M112,184 L144,184 L224,256 L32,256 Z"
+                android:fillColor="#FF252B35"/>
+            <path android:pathData="M125,193 L131,193 L145,256 L111,256 Z"
+                android:fillColor="#FFFFD45A"/>
+          </vector>
+          EOF
+          echo "Icona adattiva Kodi Auto oro/nero applicata."    
 
       - name: Bootstrap Kodi dependencies
         working-directory: kodi/tools/depends
