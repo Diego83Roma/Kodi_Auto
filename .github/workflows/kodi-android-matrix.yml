@@ -128,41 +128,21 @@ jobs:
           echo "Immagine originale Kodi Auto applicata."
           test -s "$RES/drawable-nodpi/kodiauto_icon.png"
 
-      - name: Brand Estuary home screen with Kodi Auto logo
+      - name: Restore Kodi Auto logo in original Kodi home logo slot
         working-directory: kodi
         run: |
           set -e
-          SKIN="addons/skin.estuary"
           LOGO="../KodiAuto/kodiauto-icon.png"
-          HOME_XML="$SKIN/xml/Home.xml"
-          VENDOR_LOGO="$SKIN/media/vendor_logo.png"
+          VENDOR_LOGO="media/vendor_logo.png"
 
           test -s "$LOGO"
-          test -s "$HOME_XML"
-          mkdir -p "$SKIN/media"
+          test -d "addons/skin.estuary"
           cp "$LOGO" "$VENDOR_LOGO"
-
-          python3 - <<'PY'
-          from pathlib import Path
-
-          home = Path("addons/skin.estuary/xml/Home.xml")
-          data = home.read_text(encoding="utf-8")
-          old = "special://xbmc/media/vendor_logo.png"
-          new = "special://skin/media/vendor_logo.png"
-
-          count = data.count(old)
-          if count != 1:
-              raise SystemExit(
-                  f"Logo standard Kodi atteso una volta in Home.xml, trovato: {count}"
-              )
-
-          home.write_text(data.replace(old, new, 1), encoding="utf-8")
-          if new not in home.read_text(encoding="utf-8"):
-              raise SystemExit("Verifica logo Kodi Auto fallita")
-          print("Logo Kodi Auto inserito nella schermata Home di Estuary.")
-          PY
-
           test -s "$VENDOR_LOGO"
+
+          grep -q 'special://xbmc/media/vendor_logo.png' addons/skin.estuary/xml/Home.xml
+          echo "Logo Kodi Auto copiato nel percorso originale usato da Estuary."
+          echo "Home.xml lasciato intatto per mantenere il collegamento standard di Kodi."
 
       - name: Bootstrap Kodi dependencies
         working-directory: kodi/tools/depends
