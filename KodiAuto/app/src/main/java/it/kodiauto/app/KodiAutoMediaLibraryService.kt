@@ -10,16 +10,17 @@ import androidx.media3.session.MediaSession
 import com.google.common.collect.ImmutableList
 import com.google.common.util.concurrent.Futures
 import com.google.common.util.concurrent.ListenableFuture
+import com.google.common.util.concurrent.SettableFuture
+import java.util.concurrent.Executors
 
 /**
- * Android Auto media-browsing entry point.
- *
- * This first integration exposes the Kodi Auto library structure to Android Auto.
- * The actual Kodi playback engine will be connected in a later step.
+ * Android Auto library backed by the separate Kodi engine through local JSON-RPC.
+ * Browsing is connected in this step; remote playback/session synchronisation follows.
  */
 class KodiAutoMediaLibraryService : MediaLibraryService() {
 
     private var librarySession: MediaLibrarySession? = null
+    private val worker = Executors.newSingleThreadExecutor()
 
     private val libraryCallback = object : MediaLibrarySession.Callback {
         override fun onGetLibraryRoot(
@@ -27,18 +28,7 @@ class KodiAutoMediaLibraryService : MediaLibraryService() {
             browser: MediaSession.ControllerInfo,
             params: LibraryParams?
         ): ListenableFuture<LibraryResult<MediaItem>> {
-            val root = MediaItem.Builder()
-                .setMediaId(ROOT_ID)
-                .setMediaMetadata(
-                    MediaMetadata.Builder()
-                        .setTitle("Kodi Auto")
-                        .setIsBrowsable(true)
-                        .setIsPlayable(false)
-                        .setMediaType(MediaMetadata.MEDIA_TYPE_FOLDER_MIXED)
-                        .build()
-                )
-                .build()
-
+            val root = folder(ROOT_ID, "Kodi Auto", true)
             return Futures.immediateFuture(LibraryResult.ofItem(root, params))
         }
 
@@ -50,21 +40,43 @@ class KodiAutoMediaLibraryService : MediaLibraryService() {
             pageSize: Int,
             params: LibraryParams?
         ): ListenableFuture<LibraryResult<ImmutableList<MediaItem>>> {
-            val children = when (parentId) {
-                ROOT_ID -> ImmutableList.of(
-                    folder(MUSIC_ID, "Musica"),
-                    folder(VIDEO_ID, "Video")
-                )
-                else -> ImmutableList.of()
+            val future = SettableFuture.create<LibraryResult<ImmutableList<MediaItem>>>()
+            worker.execute {
+                try {
+                    val children = when {
+                        parentId == ROOT_ID -> listOf(
+                            folder(MUSIC_ID, "Musica", true),
+                            folder(VIDEO_ID, "Video", true)
+                        )
+                        parentId == MUSIC_ID -> loadAlbums()
+                        parentId == VIDEO_ID -> loadMovies()
+                        parentId.startsWith(ALBUM_PREFIX) -> loadSongs(parentId.removePrefix(ALBUM_PREFIX).toInt())
+                        else -> emptyList()
+                    }
+                    val from = (page * pageSize).coerceIn(0, children.size)
+                    val to = (from + pageSize).coerceIn(from, children.size)
+                    future.set(LibraryResult.ofItemList(ImmutableList.copyOf(children.subList(from, to)), params))
+                } catch (error: Exception) {
+                    val hint = if (parentId == ROOT_ID) {
+                        "Avvia Kodi Auto e abilita il controllo locale in Impostazioni > Servizi > Controllo."
+                    } else {
+                        "Libreria Kodi non disponibile. Verifica che Kodi sia aperto e che il controllo locale sia attivo."
+                    }
+                    val item = MediaItem.Builder()
+                        .setMediaId("kodi_connection_error")
+                        .setMediaMetadata(
+                            MediaMetadata.Builder()
+                                .setTitle("Kodi non raggiungibile")
+                                .setSubtitle(hint)
+                                .setIsBrowsable(false)
+                                .setIsPlayable(false)
+                                .build()
+                        )
+                        .build()
+                    future.set(LibraryResult.ofItemList(ImmutableList.of(item), params))
+                }
             }
-
-            val fromIndex = (page * pageSize).coerceAtMost(children.size)
-            val toIndex = (fromIndex + pageSize).coerceAtMost(children.size)
-            val pageItems = children.subList(fromIndex, toIndex)
-
-            return Futures.immediateFuture(
-                LibraryResult.ofItemList(ImmutableList.copyOf(pageItems), params)
-            )
+            return future
         }
     }
 
@@ -84,26 +96,102 @@ class KodiAutoMediaLibraryService : MediaLibraryService() {
             session.release()
         }
         librarySession = null
+        worker.shutdownNow()
         super.onDestroy()
     }
 
-    private fun folder(id: String, title: String): MediaItem {
-        return MediaItem.Builder()
+    private fun loadAlbums(): List<MediaItem> {
+        val albums = KodiJsonRpcClient.albums()
+        return buildList {
+            for (i in 0 until albums.length()) {
+                val album = albums.getJSONObject(i)
+                val id = album.optInt("albumid", -1)
+                if (id >= 0) {
+                    val artist = album.optJSONArray("artist")?.optString(0).orEmpty()
+                    add(
+                        MediaItem.Builder()
+                            .setMediaId(ALBUM_PREFIX + id)
+                            .setMediaMetadata(
+                                MediaMetadata.Builder()
+                                    .setTitle(album.optString("title", "Album"))
+                                    .setArtist(artist)
+                                    .setIsBrowsable(true)
+                                    .setIsPlayable(false)
+                                    .build()
+                            )
+                            .build()
+                    )
+                }
+            }
+        }
+    }
+
+    private fun loadSongs(albumId: Int): List<MediaItem> {
+        val songs = KodiJsonRpcClient.songs(albumId)
+        return buildList {
+            for (i in 0 until songs.length()) {
+                val song = songs.getJSONObject(i)
+                val id = song.optInt("songid", -1)
+                if (id >= 0) {
+                    add(
+                        MediaItem.Builder()
+                            .setMediaId("song:$id")
+                            .setMediaMetadata(
+                                MediaMetadata.Builder()
+                                    .setTitle(song.optString("title", "Brano"))
+                                    .setArtist(song.optJSONArray("artist")?.optString(0).orEmpty())
+                                    .setIsBrowsable(false)
+                                    .setIsPlayable(true)
+                                    .build()
+                            )
+                            .build()
+                    )
+                }
+            }
+        }
+    }
+
+    private fun loadMovies(): List<MediaItem> {
+        val movies = KodiJsonRpcClient.movies()
+        return buildList {
+            for (i in 0 until movies.length()) {
+                val movie = movies.getJSONObject(i)
+                val id = movie.optInt("movieid", -1)
+                if (id >= 0) {
+                    add(
+                        MediaItem.Builder()
+                            .setMediaId("movie:$id")
+                            .setMediaMetadata(
+                                MediaMetadata.Builder()
+                                    .setTitle(movie.optString("title", "Video"))
+                                    .setSubtitle(movie.optString("year", ""))
+                                    .setIsBrowsable(false)
+                                    .setIsPlayable(true)
+                                    .build()
+                            )
+                            .build()
+                    )
+                }
+            }
+        }
+    }
+
+    private fun folder(id: String, title: String, browsable: Boolean): MediaItem =
+        MediaItem.Builder()
             .setMediaId(id)
             .setMediaMetadata(
                 MediaMetadata.Builder()
                     .setTitle(title)
-                    .setIsBrowsable(true)
+                    .setIsBrowsable(browsable)
                     .setIsPlayable(false)
-                    .setMediaType(MediaMetadata.MEDIA_TYPE_FOLDER_MIXED)
                     .build()
             )
             .build()
-    }
 
     private companion object {
         const val ROOT_ID = "kodiauto_root"
         const val MUSIC_ID = "kodiauto_music"
         const val VIDEO_ID = "kodiauto_video"
+        const val ALBUM_PREFIX = "album:"
     }
 }
