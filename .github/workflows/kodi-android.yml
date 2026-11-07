@@ -59,21 +59,19 @@ jobs:
 
       - name: Set Kodi Auto app identity
         run: |
-          sed -i 's/^APP_NAME Kodi$/APP_NAME Kodi Auto/' kodi/version.txt
+          sed -i 's/^APP_NAME .*/APP_NAME Kodi/' kodi/version.txt
           sed -i 's/^APP_PACKAGE .*/APP_PACKAGE it.kodiauto.media/' kodi/version.txt
 
-          echo "Controllo identità Kodi Auto:"
+          sed -i 's/@APP_NAME@/Kodi Auto/g' \
+            kodi/tools/android/packaging/xbmc/strings.xml.in
+
+          echo "Controllo identità:"
           grep -E '^(APP_NAME|APP_PACKAGE) ' kodi/version.txt
+          grep 'app_name' kodi/tools/android/packaging/xbmc/strings.xml.in
 
-          if ! grep -q '^APP_NAME Kodi Auto$' kodi/version.txt; then
-            echo "ERROR: nome app non modificato correttamente"
-            exit 1
-          fi
-
-          if ! grep -q '^APP_PACKAGE it\.kodiauto\.media$' kodi/version.txt; then
-            echo "ERROR: package ID non modificato correttamente"
-            exit 1
-          fi
+          grep -q '^APP_NAME Kodi$' kodi/version.txt
+          grep -q '^APP_PACKAGE it\.kodiauto\.media$' kodi/version.txt
+          grep -q 'Kodi Auto' kodi/tools/android/packaging/xbmc/strings.xml.in
 
       - name: Bootstrap Kodi dependencies
         working-directory: kodi/tools/depends
