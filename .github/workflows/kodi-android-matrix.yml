@@ -188,11 +188,12 @@ jobs:
           # Kodi's own Gradle application module remains the only APK.
           # AGP 9.x has built-in Kotlin support; compile the integration
           # sources copied by Kodi's existing packaging Makefile.
-          mkdir -p "$PKG_DIR/src" "$PKG_DIR/res/xml"
+          KOTLIN_DIR="$PKG_DIR/java/it/kodiauto/media"
+          mkdir -p "$KOTLIN_DIR" "$PKG_DIR/res/xml"
           sed 's/^package it\.kodiauto\.app$/package it.kodiauto.media/' \
-            "$SRC/KodiAutoMediaLibraryService.kt" > "$PKG_DIR/src/KodiAutoMediaLibraryService.kt"
+            "$SRC/KodiAutoMediaLibraryService.kt" > "$KOTLIN_DIR/KodiAutoMediaLibraryService.kt"
           sed 's/^package it\.kodiauto\.app$/package it.kodiauto.media/' \
-            "$SRC/KodiJsonRpcClient.kt" > "$PKG_DIR/src/KodiJsonRpcClient.kt"
+            "$SRC/KodiJsonRpcClient.kt" > "$KOTLIN_DIR/KodiJsonRpcClient.kt"
           cp KodiAuto/app/src/main/res/xml/automotive_app_desc.xml \
             "$PKG_DIR/res/xml/automotive_app_desc.xml"
 
@@ -263,7 +264,8 @@ jobs:
           manifest.write_text(xml, encoding="utf-8")
           PY
 
-          test -s "$PKG_DIR/src/KodiAutoMediaLibraryService.kt"
+          test -s "$PKG_DIR/java/it/kodiauto/media/KodiAutoMediaLibraryService.kt"
+          test -s "$PKG_DIR/java/it/kodiauto/media/KodiJsonRpcClient.kt"
           grep -q 'androidx.media3.session.MediaLibraryService' "$PKG_DIR/AndroidManifest.xml"
           grep -q 'automotive_app_desc' "$PKG_DIR/AndroidManifest.xml"
           grep -q 'media3-session:1.8.0' "$PKG_DIR/build.gradle"
