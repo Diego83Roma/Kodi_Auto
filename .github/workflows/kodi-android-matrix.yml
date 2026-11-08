@@ -185,8 +185,26 @@ jobs:
           print("Menu principale Kodi Auto personalizzato; funzioni Kodi originali conservate.")
           PY
 
-          grep -q '<label>TV IN DIRETTA</label>' kodi/addons/skin.estuary/xml/Home.xml
-          grep -q '<label>MUSICA</label>' kodi/addons/skin.estuary/xml/Home.xml
+          grep -q '<label>TV IN DIRETTA</label>' addons/skin.estuary/xml/Home.xml
+          grep -q '<label>MUSICA</label>' addons/skin.estuary/xml/Home.xml
+
+          # Estuary already defines a touch back control in its TopBar.
+          # Make its icon visible on every screen that uses the navigation bar.
+          python3 - <<'PY'
+          from pathlib import Path
+
+          includes = Path("addons/skin.estuary/xml/Includes.xml")
+          data = includes.read_text(encoding="utf-8")
+          old = '<include condition="Skin.HasSetting(touchmode) + !Window.IsActive(home)">TouchBackButton</include>'
+          new = '<include condition="!Window.IsActive(home)">TouchBackButton</include>'
+          if old not in data:
+              raise SystemExit("Richiamo TouchBackButton di Estuary non trovato")
+          data = data.replace(old, new, 1)
+          includes.write_text(data, encoding="utf-8")
+          print("Pulsante touch Indietro attivato nella barra superiore.")
+          PY
+
+          grep -q '<include condition="!Window.IsActive(home)">TouchBackButton</include>' addons/skin.estuary/xml/Includes.xml
 
       - name: Bootstrap Kodi dependencies
         working-directory: kodi/tools/depends
