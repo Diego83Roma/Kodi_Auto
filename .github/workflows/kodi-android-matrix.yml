@@ -263,7 +263,7 @@ jobs:
           manifest.write_text(xml, encoding="utf-8")
           PY
 
-          grep -q 'KodiAutoMediaLibraryService.kt' "$PKG_DIR/src/KodiAutoMediaLibraryService.kt"
+          test -s "$PKG_DIR/src/KodiAutoMediaLibraryService.kt"
           grep -q 'androidx.media3.session.MediaLibraryService' "$PKG_DIR/AndroidManifest.xml"
           grep -q 'automotive_app_desc' "$PKG_DIR/AndroidManifest.xml"
           grep -q 'media3-session:1.8.0' "$PKG_DIR/build.gradle"
