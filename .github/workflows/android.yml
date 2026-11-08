@@ -1,5 +1,5 @@
 
-name: Build Kodi Auto APK
+name: Build Kodi Auto APK (0.3.0)
 
 on:
   workflow_dispatch:
