@@ -23,6 +23,33 @@ class KodiAutoMediaLibraryService : MediaLibraryService() {
     private val worker = Executors.newSingleThreadExecutor()
 
     private val libraryCallback = object : MediaLibrarySession.Callback {
+        override fun onSetMediaItems(
+            session: MediaSession,
+            controller: MediaSession.ControllerInfo,
+            mediaItems: List<MediaItem>,
+            startIndex: Int,
+            startPositionMs: Long
+        ): ListenableFuture<List<MediaItem>> {
+            val future = SettableFuture.create<List<MediaItem>>()
+            worker.execute {
+                try {
+                    val selected = mediaItems.getOrNull(startIndex)
+                        ?: throw IllegalArgumentException("Nessun contenuto selezionato")
+                    when {
+                        selected.mediaId.startsWith("song:") ->
+                            KodiJsonRpcClient.openSong(selected.mediaId.removePrefix("song:").toInt())
+                        selected.mediaId.startsWith("movie:") ->
+                            KodiJsonRpcClient.openMovie(selected.mediaId.removePrefix("movie:").toInt())
+                        else -> throw IllegalArgumentException("Elemento non riproducibile")
+                    }
+                    future.set(mediaItems)
+                } catch (error: Exception) {
+                    future.setException(error)
+                }
+            }
+            return future
+        }
+
         override fun onGetLibraryRoot(
             session: MediaLibrarySession,
             browser: MediaSession.ControllerInfo,
@@ -69,7 +96,7 @@ class KodiAutoMediaLibraryService : MediaLibraryService() {
                                 .setTitle("Kodi non raggiungibile")
                                 .setSubtitle(hint)
                                 .setIsBrowsable(false)
-                                .setIsPlayable(false)
+                                .setIsPlayable(true)
                                 .build()
                         )
                         .build()
