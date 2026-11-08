@@ -63,7 +63,7 @@ fun KodiAutoApp() {
                     ),
                     contentAlignment = Alignment.Center
                 ) {
-                    Icon(Icons.Default.CrownIconFallback(), contentDescription = null, tint = Night, modifier = Modifier.size(30.dp))
+                    Icon(Icons.Default.Star, contentDescription = null, tint = Night, modifier = Modifier.size(30.dp))
                 }
                 Spacer(Modifier.height(10.dp))
                 Text("KODI", color = GoldLight, fontSize = 15.sp, fontWeight = FontWeight.Black, letterSpacing = 2.sp)
