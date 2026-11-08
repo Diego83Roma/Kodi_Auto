@@ -43,6 +43,14 @@ internal object KodiJsonRpcClient {
         }
     }
 
+    fun openSong(songId: Int) {
+        call("Player.Open", JSONObject().put("item", JSONObject().put("songid", songId)))
+    }
+
+    fun openMovie(movieId: Int) {
+        call("Player.Open", JSONObject().put("item", JSONObject().put("movieid", movieId)))
+    }
+
     fun albums(): JSONArray {
         val params = JSONObject()
             .put("properties", JSONArray().put("title").put("artist").put("year").put("thumbnail"))
