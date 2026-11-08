@@ -174,6 +174,102 @@ jobs:
           cd build
           make -j2
 
+      - name: Integrate Android Auto into the single Kodi APK
+        run: |
+          set -euo pipefail
+          PKG_DIR="kodi/build/tools/android/packaging/xbmc"
+          SRC="KodiAuto/app/src/main/java/it/kodiauto/app"
+
+          test -f "$PKG_DIR/build.gradle"
+          test -f "$PKG_DIR/AndroidManifest.xml"
+          test -f "$SRC/KodiAutoMediaLibraryService.kt"
+          test -f "$SRC/KodiJsonRpcClient.kt"
+
+          # Kodi's own Gradle application module remains the only APK.
+          # AGP 9.x has built-in Kotlin support; compile the integration
+          # sources copied by Kodi's existing packaging Makefile.
+          mkdir -p "$PKG_DIR/src" "$PKG_DIR/res/xml"
+          sed 's/^package it\.kodiauto\.app$/package it.kodiauto.media/' \
+            "$SRC/KodiAutoMediaLibraryService.kt" > "$PKG_DIR/src/KodiAutoMediaLibraryService.kt"
+          sed 's/^package it\.kodiauto\.app$/package it.kodiauto.media/' \
+            "$SRC/KodiJsonRpcClient.kt" > "$PKG_DIR/src/KodiJsonRpcClient.kt"
+          cp KodiAuto/app/src/main/res/xml/automotive_app_desc.xml \
+            "$PKG_DIR/res/xml/automotive_app_desc.xml"
+
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          module = Path("kodi/build/tools/android/packaging/xbmc")
+          gradle = module / "build.gradle"
+          text = gradle.read_text(encoding="utf-8")
+
+          if "androidx.media3:media3-session:1.8.0" not in text:
+              text = text.replace(
+                  "dependencies {",
+                  """dependencies {
+              implementation 'androidx.media3:media3-exoplayer:1.8.0'
+              implementation 'androidx.media3:media3-session:1.8.0'
+              implementation 'com.google.guava:guava:33.3.1-android'""",
+                  1
+              )
+
+          if "kotlin.directories.add('java')" not in text:
+              text = text.replace(
+                  "java.srcDirs = ['java']",
+                  "java.srcDirs = ['java']\n            kotlin.directories.add('java')",
+                  1
+              )
+
+          if "kotlin.directories.add('java')" not in text:
+              raise SystemExit("Directory Kotlin non configurata nel modulo Kodi")
+          gradle.write_text(text, encoding="utf-8")
+
+          manifest = module / "AndroidManifest.xml"
+          xml = manifest.read_text(encoding="utf-8")
+
+          permissions = [
+              '    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />',
+              '    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />',
+          ]
+          for permission in permissions:
+              name = re.search(r'android:name="([^"]+)"', permission).group(1)
+              if name not in xml:
+                  xml = xml.replace("    <application", permission + "\n\n    <application", 1)
+
+          if 'com.google.android.gms.car.application' not in xml:
+              xml, count = re.subn(
+                  r'(<application\b[\s\S]*?>)',
+                  r'\1\n        <meta-data android:name="com.google.android.gms.car.application" android:resource="@xml/automotive_app_desc" />',
+                  xml,
+                  count=1
+              )
+              if count != 1:
+                  raise SystemExit("Tag application non trovato nel manifest Kodi")
+
+          if 'androidx.media3.session.MediaLibraryService' not in xml:
+              service = '''
+                  <service
+                      android:name=".KodiAutoMediaLibraryService"
+                      android:exported="true"
+                      android:foregroundServiceType="mediaPlayback">
+                      <intent-filter>
+                          <action android:name="androidx.media3.session.MediaLibraryService" />
+                      </intent-filter>
+                  </service>
+              '''
+              xml = xml.replace("    </application>", service + "\n    </application>", 1)
+
+          manifest.write_text(xml, encoding="utf-8")
+          PY
+
+          grep -q 'KodiAutoMediaLibraryService.kt' "$PKG_DIR/src/KodiAutoMediaLibraryService.kt"
+          grep -q 'androidx.media3.session.MediaLibraryService' "$PKG_DIR/AndroidManifest.xml"
+          grep -q 'automotive_app_desc' "$PKG_DIR/AndroidManifest.xml"
+          grep -q 'media3-session:1.8.0' "$PKG_DIR/build.gradle"
+          test -s "$PKG_DIR/res/xml/automotive_app_desc.xml"
+          echo "Integrazione Android Auto inserita nel modulo APK Kodi unico."
+
       - name: Create Android debug keystore
         run: |
           mkdir -p "$HOME/.android"
