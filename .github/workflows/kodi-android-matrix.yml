@@ -190,19 +190,20 @@ jobs:
       - name: Increase Gradle wrapper download timeout
         run: |
           set -e
-          WRAPPER=$(find kodi -name gradle-wrapper.properties -print -quit)
-          if [ -z "$WRAPPER" ]; then
-            echo "ERROR: gradle-wrapper.properties non trovato"
-            find kodi -maxdepth 6 -iname '*gradle*wrapper*' -print
+          mapfile -t WRAPPERS < <(find kodi -type f -name gradle-wrapper.properties -print)
+          if [ "${#WRAPPERS[@]}" -eq 0 ]; then
+            echo "ERROR: nessun gradle-wrapper.properties trovato"
             exit 1
           fi
-          if grep -q '^networkTimeout=' "$WRAPPER"; then
-            sed -i 's/^networkTimeout=.*/networkTimeout=120000/' "$WRAPPER"
-          else
-            echo 'networkTimeout=120000' >> "$WRAPPER"
-          fi
-          echo "Timeout download Gradle impostato a 120 secondi:"
-          cat "$WRAPPER"
+          for WRAPPER in "${WRAPPERS[@]}"; do
+            if grep -q '^networkTimeout=' "$WRAPPER"; then
+              sed -i 's/^networkTimeout=.*/networkTimeout=180000/' "$WRAPPER"
+            else
+              echo 'networkTimeout=180000' >> "$WRAPPER"
+            fi
+            echo "Configurazione Gradle aggiornata: $WRAPPER"
+            grep -E '^(distributionUrl|networkTimeout)=' "$WRAPPER"
+          done
 
       - name: Package Kodi APK
         working-directory: kodi/build
