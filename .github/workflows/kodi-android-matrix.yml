@@ -188,6 +188,40 @@ jobs:
           grep -q '<label>TV IN DIRETTA</label>' addons/skin.estuary/xml/Home.xml
           grep -q '<label>MUSICA</label>' addons/skin.estuary/xml/Home.xml
 
+          # Give the Kodi Auto home navigation a larger, more touch-friendly
+          # layout while retaining Estuary's original focus animations/actions.
+          python3 - <<'PY'
+          from pathlib import Path
+
+          home = Path("addons/skin.estuary/xml/Home.xml")
+          data = home.read_text(encoding="utf-8")
+          start = data.find('<control type="fixedlist" id="9000">')
+          end = data.find('</control>', start)
+          # Find the matching fixedlist close via the known boundary before content ends.
+          content_end = data.find('</content>', start)
+          if start < 0 or content_end < 0:
+              raise SystemExit("Menu Kodi Auto non trovato per il layout touch")
+          section_end = data.find('</control>', content_end)
+          if section_end < 0:
+              raise SystemExit("Chiusura menu non trovata")
+          section = data[start:section_end + len('</control>')]
+          section = section.replace('<focusedlayout height="95">', '<focusedlayout height="108">', 1)
+          section = section.replace('<itemlayout height="95">', '<itemlayout height="108">', 1)
+          # Enlarge icon and label slots in the two layouts (not the full menu width).
+          section = section.replace('<width>95</width>', '<width>108</width>')
+          section = section.replace('<height>95</height>', '<height>108</height>')
+          section = section.replace('<height>95</height>', '<height>108</height>')
+          section = section.replace('<left>104</left>', '<left>118</left>')
+          section = section.replace('<height>95</height>', '<height>108</height>')
+          if '<focusedlayout height="108">' not in section or '<itemlayout height="108">' not in section:
+              raise SystemExit("Layout touch maggiorato non applicato")
+          data = data[:start] + section + data[section_end + len('</control>'):]
+          home.write_text(data, encoding="utf-8")
+          print("Menu iniziale Kodi Auto: spaziatura e icone ingrandite per il touch.")
+          PY
+
+          grep -q '<focusedlayout height="108">' kodi/addons/skin.estuary/xml/Home.xml
+
           # Estuary already defines a touch back control in its TopBar.
           # Make its icon visible on every screen that uses the navigation bar.
           python3 - <<'PY'
