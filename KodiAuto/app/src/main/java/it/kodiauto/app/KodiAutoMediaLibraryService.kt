@@ -29,8 +29,8 @@ class KodiAutoMediaLibraryService : MediaLibraryService() {
             mediaItems: List<MediaItem>,
             startIndex: Int,
             startPositionMs: Long
-        ): ListenableFuture<List<MediaItem>> {
-            val future = SettableFuture.create<List<MediaItem>>()
+        ): ListenableFuture<MediaSession.MediaItemsWithStartPosition> {
+            val future = SettableFuture.create<MediaSession.MediaItemsWithStartPosition>()
             worker.execute {
                 try {
                     val selected = mediaItems.getOrNull(startIndex)
@@ -42,7 +42,7 @@ class KodiAutoMediaLibraryService : MediaLibraryService() {
                             KodiJsonRpcClient.openMovie(selected.mediaId.removePrefix("movie:").toInt())
                         else -> throw IllegalArgumentException("Elemento non riproducibile")
                     }
-                    future.set(mediaItems)
+                    future.set(MediaSession.MediaItemsWithStartPosition(mediaItems, startIndex, startPositionMs))
                 } catch (error: Exception) {
                     future.setException(error)
                 }
