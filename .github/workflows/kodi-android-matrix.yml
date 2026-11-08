@@ -144,6 +144,50 @@ jobs:
           echo "Logo Kodi Auto copiato nel percorso originale usato da Estuary."
           echo "Home.xml lasciato intatto per mantenere il collegamento standard di Kodi."
 
+      - name: Personalize Kodi Auto home navigation
+        working-directory: kodi
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          home = Path("addons/skin.estuary/xml/Home.xml")
+          data = home.read_text(encoding="utf-8")
+
+          # Change only the labels in the main home menu, keeping Kodi's
+          # original actions, content IDs, visibility rules and TV/PVR links.
+          start = data.find('<control type="fixedlist" id="9000">')
+          if start < 0:
+              raise SystemExit("Menu principale Estuary non trovato")
+          content_start = data.find("<content>", start)
+          content_end = data.find("</content>", content_start)
+          if content_start < 0 or content_end < 0:
+              raise SystemExit("Elenco voci menu non trovato")
+
+          menu = data[content_start:content_end]
+          labels = {
+              "$LOCALIZE[342]": "FILM",
+              "$LOCALIZE[20343]": "SERIE TV",
+              "$LOCALIZE[2]": "MUSICA",
+              "$LOCALIZE[19020]": "TV IN DIRETTA",
+              "$LOCALIZE[19021]": "RADIO",
+              "$LOCALIZE[3]": "VIDEO",
+              "$LOCALIZE[24001]": "COMPONENTI",
+              "$LOCALIZE[10134]": "PREFERITI",
+          }
+          for old, new in labels.items():
+              if old not in menu:
+                  raise SystemExit(f"Voce menu non trovata: {old}")
+              menu = menu.replace(old, new, 1)
+
+          data = data[:content_start] + menu + data[content_end:]
+          home.write_text(data, encoding="utf-8")
+          print("Menu principale Kodi Auto personalizzato; funzioni Kodi originali conservate.")
+          PY
+
+          grep -q '<label>TV IN DIRETTA</label>' kodi/addons/skin.estuary/xml/Home.xml
+          grep -q '<label>MUSICA</label>' kodi/addons/skin.estuary/xml/Home.xml
+
       - name: Bootstrap Kodi dependencies
         working-directory: kodi/tools/depends
         run: |
