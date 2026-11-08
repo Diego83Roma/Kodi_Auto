@@ -56,7 +56,7 @@ jobs:
           git clone --depth 1 \
             https://github.com/xbmc/xbmc.git kodi
 
-      - name: Apply Kodi Auto Matrix visual theme
+      - name: Apply Kodi Auto black and gold theme
         working-directory: kodi
         run: |
           python3 - <<'PY'
@@ -66,15 +66,15 @@ jobs:
           colors = Path("addons/skin.estuary/colors/defaults.xml")
           data = colors.read_text(encoding="utf-8")
           palette = {
-              "primary_background": "FF073B20",
-              "secondary_background": "6600FF41",
-              "dialog_tint": "FF080D0A",
-              "dialog_header_tint": "FF064D27",
-              "button_focus": "FF00FF41",
-              "button_alt_focus": "9900FF41",
-              "selected": "FF00FF41",
-              "blue": "FF00E83A",
-              "background": "FF000000",
+              "primary_background": "FF17130D",
+              "secondary_background": "AA8F6B2E",
+              "dialog_tint": "F0090B0F",
+              "dialog_header_tint": "FF282116",
+              "button_focus": "FFE0B45C",
+              "button_alt_focus": "997D612F",
+              "selected": "FFE0B45C",
+              "blue": "FFD7AE62",
+              "background": "FF050608",
           }
 
           for name, value in palette.items():
@@ -91,8 +91,8 @@ jobs:
           print("Tema Kodi Auto nero e verde Matrix applicato.")
           PY
 
-          grep -q 'FF00FF41' addons/skin.estuary/colors/defaults.xml
-          grep -q 'FF000000' addons/skin.estuary/colors/defaults.xml
+          grep -q 'FFE0B45C' addons/skin.estuary/colors/defaults.xml
+          grep -q 'FF050608' addons/skin.estuary/colors/defaults.xml
 
       - name: Set Kodi Auto app identity
         run: |
@@ -144,18 +144,16 @@ jobs:
           echo "Logo Kodi Auto copiato nel percorso originale usato da Estuary."
           echo "Home.xml lasciato intatto per mantenere il collegamento standard di Kodi."
 
-      - name: Personalize Kodi Auto home navigation
+      - name: Redesign Kodi Auto home for TV, films, series and sport
         working-directory: kodi
         run: |
+          set -euo pipefail
           python3 - <<'PY'
           from pathlib import Path
           import re
 
           home = Path("addons/skin.estuary/xml/Home.xml")
           data = home.read_text(encoding="utf-8")
-
-          # Change only the labels in the main home menu, keeping Kodi's
-          # original actions, content IDs, visibility rules and TV/PVR links.
           start = data.find('<control type="fixedlist" id="9000">')
           if start < 0:
               raise SystemExit("Menu principale Estuary non trovato")
@@ -164,71 +162,73 @@ jobs:
           if content_start < 0 or content_end < 0:
               raise SystemExit("Elenco voci menu non trovato")
 
-          menu = data[content_start:content_end]
-          labels = {
-              "$LOCALIZE[342]": "FILM",
-              "$LOCALIZE[20343]": "SERIE TV",
-              "$LOCALIZE[2]": "MUSICA",
-              "$LOCALIZE[19020]": "TV IN DIRETTA",
-              "$LOCALIZE[19021]": "RADIO",
-              "$LOCALIZE[3]": "VIDEO",
-              "$LOCALIZE[24001]": "COMPONENTI",
-              "$LOCALIZE[10134]": "PREFERITI",
-          }
-          for old, new in labels.items():
-              if old not in menu:
-                  raise SystemExit(f"Voce menu non trovata: {old}")
-              menu = menu.replace(old, new, 1)
+          raw = data[content_start + len("<content>"):content_end]
+          items = re.findall(r"<item>.*?</item>", raw, flags=re.S)
+          by_id = {}
+          for item in items:
+              match = re.search(r'<property name="id">([^<]+)</property>', item)
+              if match:
+                  by_id[match.group(1)] = item
 
-          data = data[:content_start] + menu + data[content_end:]
+          required = ("movies", "tvshows", "livetv", "video", "addons", "favorites")
+          missing = [key for key in required if key not in by_id]
+          if missing:
+              raise SystemExit("Voci menu originali mancanti: " + ", ".join(missing))
+
+          def label(item, value):
+              return re.sub(r"<label>.*?</label>", "<label>" + value + "</label>", item, count=1, flags=re.S)
+
+          film = label(by_id["movies"], "FILM")
+          series = label(by_id["tvshows"], "SERIE TV")
+          live = label(by_id["livetv"], "TV IN DIRETTA")
+          sources = label(by_id["video"], "SORGENTI")
+          sources = re.sub(r"<onclick>.*?</onclick>",
+                           "<onclick>ActivateWindow(Videos,sources://video/,return)</onclick>",
+                           sources, count=1, flags=re.S)
+          sport = label(by_id["addons"], "SPORT")
+          sport = re.sub(r"<onclick>.*?</onclick>",
+                         "<onclick>ActivateWindow(Videos,addons://sources/video/,return)</onclick>",
+                         sport, count=1, flags=re.S)
+          favorites = label(by_id["favorites"], "PREFERITI")
+
+          # Reuse Kodi native menu IDs and actions; only reorganize the home.
+          new_menu = "\n".join((live, film, series, sport, sources, favorites))
+          data = data[:content_start + len("<content>")] + "\n" + new_menu + "\n" + data[content_end:]
           home.write_text(data, encoding="utf-8")
-          print("Menu principale Kodi Auto personalizzato; funzioni Kodi originali conservate.")
+
+          # Larger menu targets for phone touch.
+          data = home.read_text(encoding="utf-8")
+          menu_start = data.find('<control type="fixedlist" id="9000">')
+          before, menu = data[:menu_start], data[menu_start:]
+          menu = menu.replace('<focusedlayout height="95">', '<focusedlayout height="104">', 1)
+          menu = menu.replace('<itemlayout height="95">', '<itemlayout height="104">', 1)
+          menu = menu.replace('<width>95</width>', '<width>104</width>', 4)
+          menu = menu.replace('<height>95</height>', '<height>104</height>', 6)
+          home.write_text(before + menu, encoding="utf-8")
+          print("Home Kodi Auto: TV, Film, Serie TV, Sport, Sorgenti, Preferiti.")
           PY
 
           grep -q '<label>TV IN DIRETTA</label>' addons/skin.estuary/xml/Home.xml
-          grep -q '<label>MUSICA</label>' addons/skin.estuary/xml/Home.xml
+          grep -q '<label>FILM</label>' addons/skin.estuary/xml/Home.xml
+          grep -q '<label>SERIE TV</label>' addons/skin.estuary/xml/Home.xml
+          grep -q '<label>SPORT</label>' addons/skin.estuary/xml/Home.xml
+          grep -q '<label>SORGENTI</label>' addons/skin.estuary/xml/Home.xml
+          grep -q '<label>PREFERITI</label>' addons/skin.estuary/xml/Home.xml
+          grep -q 'addons://sources/video/' addons/skin.estuary/xml/Home.xml
 
-          # Give the Kodi Auto home navigation a larger, more touch-friendly
-          # layout while retaining Estuary's original focus animations/actions.
           python3 - <<'PY'
           from pathlib import Path
-
-          home = Path("addons/skin.estuary/xml/Home.xml")
-          data = home.read_text(encoding="utf-8")
-          start = data.find('<control type="fixedlist" id="9000">')
-          if start < 0:
-              raise SystemExit("Menu Kodi Auto non trovato per il layout touch")
-          # Edit only the menu and the first matching layout values after its start.
-          before, menu = data[:start], data[start:]
-          menu = menu.replace('<focusedlayout height="95">', '<focusedlayout height="108">', 1)
-          menu = menu.replace('<itemlayout height="95">', '<itemlayout height="108">', 1)
-          menu = menu.replace('<width>95</width>', '<width>108</width>', 4)
-          menu = menu.replace('<height>95</height>', '<height>108</height>', 6)
-          menu = menu.replace('<left>104</left>', '<left>118</left>', 2)
-          if '<focusedlayout height="108">' not in menu or '<itemlayout height="108">' not in menu:
-              raise SystemExit("Layout touch maggiorato non applicato")
-          home.write_text(before + menu, encoding="utf-8")
-          print("Menu iniziale Kodi Auto: spaziatura e icone ingrandite per il touch.")
-          PY
-
-          grep -q '<focusedlayout height="108">' addons/skin.estuary/xml/Home.xml
-
-          # Estuary already defines a touch back control in its TopBar.
-          # Make its icon visible on every screen that uses the navigation bar.
-          python3 - <<'PY'
-          from pathlib import Path
-
           includes = Path("addons/skin.estuary/xml/Includes.xml")
           data = includes.read_text(encoding="utf-8")
           old = '<include condition="Skin.HasSetting(touchmode) + !Window.IsActive(home)">TouchBackButton</include>'
           new = '<include condition="!Window.IsActive(home)">TouchBackButton</include>'
-          if old not in data:
+          if old in data:
+              data = data.replace(old, new, 1)
+              includes.write_text(data, encoding="utf-8")
+          elif new not in data:
               raise SystemExit("Richiamo TouchBackButton di Estuary non trovato")
-          data = data.replace(old, new, 1)
-          includes.write_text(data, encoding="utf-8")
-          print("Pulsante touch Indietro attivato nella barra superiore.")
+          print("Navigazione touch verificata.")
           PY
-
           grep -q '<include condition="!Window.IsActive(home)">TouchBackButton</include>' addons/skin.estuary/xml/Includes.xml
 
       - name: Bootstrap Kodi dependencies
