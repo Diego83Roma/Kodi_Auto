@@ -108,7 +108,7 @@ public final class KodiAutoCarActivity extends CarActivity {
         Button previous = new Button(this);
         previous.setText("⏮");
         previous.setOnClickListener(v -> {
-            if (controller != null) controller.seekToPreviousMediaItem();
+            if (controller != null) controller.seekToPrevious();
         });
         controls.addView(previous);
 
@@ -124,7 +124,7 @@ public final class KodiAutoCarActivity extends CarActivity {
         Button next = new Button(this);
         next.setText("⏭");
         next.setOnClickListener(v -> {
-            if (controller != null) controller.seekToNextMediaItem();
+            if (controller != null) controller.seekToNext();
         });
         controls.addView(next);
 
