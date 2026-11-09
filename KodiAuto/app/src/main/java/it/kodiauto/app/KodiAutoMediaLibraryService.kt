@@ -69,12 +69,14 @@ class KodiAutoMediaLibraryService : MediaLibraryService() {
                             folder(MUSIC_ID, "Musica", true),
                             folder(MOVIES_ID, "Film", true),
                             folder(TV_ID, "Serie TV", true),
-                            folder(LIVE_ID, "TV in diretta", true)
+                            folder(LIVE_ID, "TV in diretta", true),
+                            folder(RADIO_ID, "Radio", true)
                         )
                         parentId == MUSIC_ID -> loadAlbums()
                         parentId == MOVIES_ID -> loadMovies()
                         parentId == TV_ID -> loadTvShows()
-                        parentId == LIVE_ID -> loadChannels()
+                        parentId == LIVE_ID -> loadChannels(false)
+                        parentId == RADIO_ID -> loadChannels(true)
                         parentId.startsWith(ALBUM_PREFIX) ->
                             loadSongs(parentId.removePrefix(ALBUM_PREFIX).toInt())
                         parentId.startsWith(TVSHOW_PREFIX) ->
@@ -260,8 +262,8 @@ class KodiAutoMediaLibraryService : MediaLibraryService() {
         }
     }
 
-    private fun loadChannels(): List<MediaItem> {
-        val channels = KodiJsonRpcClient.channels()
+    private fun loadChannels(radio: Boolean): List<MediaItem> {
+        val channels = if (radio) KodiJsonRpcClient.radioChannels() else KodiJsonRpcClient.channels()
         return buildList {
             for (i in 0 until channels.length()) {
                 val channel = channels.getJSONObject(i)
@@ -302,6 +304,7 @@ class KodiAutoMediaLibraryService : MediaLibraryService() {
         const val MOVIES_ID = "kodiauto_movies"
         const val TV_ID = "kodiauto_tv"
         const val LIVE_ID = "kodiauto_live"
+        const val RADIO_ID = "kodiauto_radio"
         const val ALBUM_PREFIX = "album:"
         const val TVSHOW_PREFIX = "tvshow:"
     }
