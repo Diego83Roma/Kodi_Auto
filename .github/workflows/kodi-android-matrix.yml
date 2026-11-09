@@ -317,6 +317,7 @@ jobs:
           xml = manifest.read_text(encoding="utf-8")
 
           permissions = [
+              '    <uses-permission android:name="android.permission.INTERNET" />',
               '    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />',
               '    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />',
           ]
@@ -339,10 +340,12 @@ jobs:
               service = '''
                   <service
                       android:name=".KodiAutoMediaLibraryService"
+                      android:label="Kodi Auto"
                       android:exported="true"
                       android:foregroundServiceType="mediaPlayback">
                       <intent-filter>
                           <action android:name="androidx.media3.session.MediaLibraryService" />
+                          <action android:name="androidx.media3.session.MediaSessionService" />
                           <action android:name="android.media.browse.MediaBrowserService" />
                       </intent-filter>
                   </service>
@@ -422,6 +425,16 @@ jobs:
           fi
 
           echo "OK: Kodi Auto ha un package ID separato!"
+
+          echo "Verifica manifest Android Auto nell'APK finale:"
+          "$AAPT" dump xmltree "$APK" AndroidManifest.xml > /tmp/kodiauto-manifest.txt
+
+          grep -Fq 'com.google.android.gms.car.application' /tmp/kodiauto-manifest.txt
+          grep -Fq 'it.kodiauto.media.KodiAutoMediaLibraryService' /tmp/kodiauto-manifest.txt
+          grep -Fq 'androidx.media3.session.MediaLibraryService' /tmp/kodiauto-manifest.txt
+          grep -Fq 'android.media.browse.MediaBrowserService' /tmp/kodiauto-manifest.txt
+
+          echo "OK: manifest finale contiene metadati Android Auto e servizio media esportato."
 
       - name: Upload Kodi APK
         uses: actions/upload-artifact@v4
