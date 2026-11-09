@@ -285,16 +285,22 @@ jobs:
           gradle = module / "build.gradle"
           text = gradle.read_text(encoding="utf-8")
 
-          if "androidx.media3:media3-session:1.8.0" not in text:
-              text = text.replace(
-                  "dependencies {",
-                  """dependencies {
-              implementation files('libs/aauto.aar')
-              implementation 'androidx.car.app:app:1.7.0'
-              implementation 'androidx.media3:media3-session:1.8.0'
-              implementation 'com.google.guava:guava:33.3.1-android'""",
-                  1
-              )
+          if "dependencies {" not in text:
+              raise SystemExit("Blocco dependencies non trovato nel modulo Kodi")
+
+          dependencies = [
+              "implementation files('libs/aauto.aar')",
+              "implementation 'androidx.car.app:app:1.7.0'",
+              "implementation 'androidx.media3:media3-session:1.8.0'",
+              "implementation 'com.google.guava:guava:33.3.1-android'",
+          ]
+          for dependency in dependencies:
+              if dependency not in text:
+                  text = text.replace(
+                      "dependencies {",
+                      "dependencies {\\n    " + dependency,
+                      1
+                  )
 
           # AGP 9.2 built-in Kotlin compiles .kt files from the
           # existing main Java source directory; no separate Kotlin
