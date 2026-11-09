@@ -70,13 +70,16 @@ class KodiAutoMediaLibraryService : MediaLibraryService() {
                             folder(MOVIES_ID, "Film", true),
                             folder(TV_ID, "Serie TV", true),
                             folder(LIVE_ID, "TV in diretta", true),
-                            folder(RADIO_ID, "Radio", true)
+                            folder(RADIO_ID, "Radio", true),
+                            folder(PLAYLISTS_ID, "Playlist", true)
                         )
                         parentId == MUSIC_ID -> loadAlbums()
                         parentId == MOVIES_ID -> loadMovies()
                         parentId == TV_ID -> loadTvShows()
                         parentId == LIVE_ID -> loadChannels(false)
                         parentId == RADIO_ID -> loadChannels(true)
+                        parentId == PLAYLISTS_ID -> loadPlaylists()
+                        parentId.startsWith(PLAYLIST_PREFIX) -> loadPlaylistItems(parentId.removePrefix(PLAYLIST_PREFIX).toInt())
                         parentId.startsWith(ALBUM_PREFIX) ->
                             loadSongs(parentId.removePrefix(ALBUM_PREFIX).toInt())
                         parentId.startsWith(TVSHOW_PREFIX) ->
@@ -210,6 +213,64 @@ class KodiAutoMediaLibraryService : MediaLibraryService() {
         }
     }
 
+    private fun loadPlaylists(): List<MediaItem> {
+        val playlists = KodiJsonRpcClient.playlists()
+        return buildList {
+            for (i in 0 until playlists.length()) {
+                val playlist = playlists.getJSONObject(i)
+                val id = playlist.optInt("playlistid", -1)
+                if (id >= 0) {
+                    add(
+                        MediaItem.Builder()
+                            .setMediaId(PLAYLIST_PREFIX + id)
+                            .setMediaMetadata(
+                                MediaMetadata.Builder()
+                                    .setTitle(playlist.optString("type", "Playlist").replaceFirstChar { it.uppercase() })
+                                    .setIsBrowsable(true)
+                                    .setIsPlayable(false)
+                                    .build()
+                            )
+                            .build()
+                    )
+                }
+            }
+        }
+    }
+
+    private fun loadPlaylistItems(playlistId: Int): List<MediaItem> {
+        val items = KodiJsonRpcClient.playlistItems(playlistId)
+        return buildList {
+            for (i in 0 until items.length()) {
+                val item = items.getJSONObject(i)
+                val type = item.optString("type")
+                val id = item.optInt("id", -1)
+                val mediaId = when (type) {
+                    "song" -> "song:$id"
+                    "movie" -> "movie:$id"
+                    "episode" -> "episode:$id"
+                    "channel" -> "channel:$id"
+                    else -> ""
+                }
+                if (id >= 0 && mediaId.isNotEmpty()) {
+                    add(
+                        MediaItem.Builder()
+                            .setMediaId(mediaId)
+                            .setMediaMetadata(
+                                MediaMetadata.Builder()
+                                    .setTitle(item.optString("title", "Contenuto"))
+                                    .setArtist(item.optJSONArray("artist")?.optString(0).orEmpty())
+                                    .setAlbumTitle(item.optString("album", ""))
+                                    .setIsBrowsable(false)
+                                    .setIsPlayable(true)
+                                    .build()
+                            )
+                            .build()
+                    )
+                }
+            }
+        }
+    }
+
     private fun loadTvShows(): List<MediaItem> {
         val shows = KodiJsonRpcClient.tvShows()
         return buildList {
@@ -305,6 +366,8 @@ class KodiAutoMediaLibraryService : MediaLibraryService() {
         const val TV_ID = "kodiauto_tv"
         const val LIVE_ID = "kodiauto_live"
         const val RADIO_ID = "kodiauto_radio"
+        const val PLAYLISTS_ID = "kodiauto_playlists"
+        const val PLAYLIST_PREFIX = "playlist:"
         const val ALBUM_PREFIX = "album:"
         const val TVSHOW_PREFIX = "tvshow:"
     }
