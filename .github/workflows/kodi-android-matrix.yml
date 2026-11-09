@@ -369,20 +369,28 @@ jobs:
           manifest.write_text(xml, encoding="utf-8")
           PY
 
-          test -s "$PKG_DIR/java/it/kodiauto/media/KodiAutoMediaLibraryService.kt"
-          test -s "$PKG_DIR/java/it/kodiauto/media/KodiJsonRpcClient.kt"
-          test -s "$PKG_DIR/java/it/kodiauto/media/KodiRemotePlayer.kt"
-          test -s "$PKG_DIR/java/it/kodiauto/media/KodiAutoCarService.java"
-          test -s "$PKG_DIR/java/it/kodiauto/media/KodiAutoCarActivity.java"
-          test -s "$PKG_DIR/libs/aauto.aar"
-          grep -q 'androidx.media3.session.MediaLibraryService' "$PKG_DIR/AndroidManifest.xml"
-          grep -q 'KodiAutoCarService' "$PKG_DIR/AndroidManifest.xml"
-          grep -q 'CATEGORY_PROJECTION' "$PKG_DIR/AndroidManifest.xml"
-          grep -q 'automotive_app_desc' "$PKG_DIR/AndroidManifest.xml"
-          grep -q 'media3-session:1.8.0' "$PKG_DIR/build.gradle"
-          grep -q 'aauto.aar' "$PKG_DIR/build.gradle"
-          grep -q '<uses name="projection" />' "$PKG_DIR/res/xml/automotive_app_desc.xml"
-          test -s "$PKG_DIR/res/xml/automotive_app_desc.xml"
+          check_file() {
+            if [ ! -s "$1" ]; then echo "CHECK FAILED: file mancante o vuoto: $1"; exit 1; fi
+            echo "CHECK OK: $1"
+          }
+          check_text() {
+            if ! grep -Fq "$1" "$2"; then echo "CHECK FAILED: testo '$1' assente in $2"; exit 1; fi
+            echo "CHECK OK: '$1' in $2"
+          }
+          check_file "$PKG_DIR/java/it/kodiauto/media/KodiAutoMediaLibraryService.kt"
+          check_file "$PKG_DIR/java/it/kodiauto/media/KodiJsonRpcClient.kt"
+          check_file "$PKG_DIR/java/it/kodiauto/media/KodiRemotePlayer.kt"
+          check_file "$PKG_DIR/java/it/kodiauto/media/KodiAutoCarService.java"
+          check_file "$PKG_DIR/java/it/kodiauto/media/KodiAutoCarActivity.java"
+          check_file "$PKG_DIR/libs/aauto.aar"
+          check_text 'androidx.media3.session.MediaLibraryService' "$PKG_DIR/AndroidManifest.xml"
+          check_text 'KodiAutoCarService' "$PKG_DIR/AndroidManifest.xml"
+          check_text 'CATEGORY_PROJECTION' "$PKG_DIR/AndroidManifest.xml"
+          check_text 'automotive_app_desc' "$PKG_DIR/AndroidManifest.xml"
+          check_text 'media3-session:1.8.0' "$PKG_DIR/build.gradle"
+          check_text 'aauto.aar' "$PKG_DIR/build.gradle"
+          check_text '<uses name="projection" />' "$PKG_DIR/res/xml/automotive_app_desc.xml"
+          check_file "$PKG_DIR/res/xml/automotive_app_desc.xml"
           echo "Integrazione Android Auto inserita nel modulo APK Kodi unico."
 
       - name: Restore persistent Kodi Auto test-signing key
