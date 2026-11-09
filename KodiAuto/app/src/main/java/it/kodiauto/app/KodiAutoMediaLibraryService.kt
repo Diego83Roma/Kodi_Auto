@@ -1,11 +1,11 @@
 package it.kodiauto.app
 
+import android.os.Handler
+import android.os.Looper
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
-import androidx.media3.exoplayer.ExoPlayer
-import androidx.media3.session.MediaLibraryService
 import androidx.media3.session.LibraryResult
-import androidx.media3.session.MediaLibraryService.MediaLibrarySession
+import androidx.media3.session.MediaLibraryService
 import androidx.media3.session.MediaSession
 import com.google.common.collect.ImmutableList
 import com.google.common.util.concurrent.Futures
@@ -14,42 +14,34 @@ import com.google.common.util.concurrent.SettableFuture
 import java.util.concurrent.Executors
 
 /**
- * Android Auto library backed by the separate Kodi engine through local JSON-RPC.
- * Browsing is connected in this step; remote playback/session synchronisation follows.
+ * Android Auto media browser backed by Kodi's own library and playback engine.
+ * The Media3 player is a remote-control facade: Kodi performs the actual playback.
  */
 class KodiAutoMediaLibraryService : MediaLibraryService() {
 
-    private var librarySession: MediaLibrarySession? = null
     private val worker = Executors.newSingleThreadExecutor()
+    private val mainHandler = Handler(Looper.getMainLooper())
+    private var kodiPlayer: KodiRemotePlayer? = null
+    private var librarySession: MediaLibrarySession? = null
 
-    private val libraryCallback = object : MediaLibrarySession.Callback {
-        override fun onSetMediaItems(
-            session: MediaSession,
-            controller: MediaSession.ControllerInfo,
-            mediaItems: List<MediaItem>,
-            startIndex: Int,
-            startPositionMs: Long
-        ): ListenableFuture<MediaSession.MediaItemsWithStartPosition> {
-            val future = SettableFuture.create<MediaSession.MediaItemsWithStartPosition>()
+    private val pollKodi = object : Runnable {
+        override fun run() {
+            if (librarySession == null) return
             worker.execute {
-                try {
-                    val selected = mediaItems.getOrNull(startIndex)
-                        ?: throw IllegalArgumentException("Nessun contenuto selezionato")
-                    when {
-                        selected.mediaId.startsWith("song:") ->
-                            KodiJsonRpcClient.openSong(selected.mediaId.removePrefix("song:").toInt())
-                        selected.mediaId.startsWith("movie:") ->
-                            KodiJsonRpcClient.openMovie(selected.mediaId.removePrefix("movie:").toInt())
-                        else -> throw IllegalArgumentException("Elemento non riproducibile")
-                    }
-                    future.set(MediaSession.MediaItemsWithStartPosition(mediaItems, startIndex, startPositionMs))
-                } catch (error: Exception) {
-                    future.setException(error)
+                val snapshot = try {
+                    KodiJsonRpcClient.playbackState()
+                } catch (_: Exception) {
+                    null
+                }
+                mainHandler.post {
+                    if (snapshot != null) kodiPlayer?.updateFromKodi(snapshot)
+                    if (librarySession != null) mainHandler.postDelayed(this, 1500)
                 }
             }
-            return future
         }
+    }
 
+    private val libraryCallback = object : MediaLibrarySession.Callback {
         override fun onGetLibraryRoot(
             session: MediaLibrarySession,
             browser: MediaSession.ControllerInfo,
@@ -73,28 +65,37 @@ class KodiAutoMediaLibraryService : MediaLibraryService() {
                     val children = when {
                         parentId == ROOT_ID -> listOf(
                             folder(MUSIC_ID, "Musica", true),
-                            folder(VIDEO_ID, "Video", true)
+                            folder(MOVIES_ID, "Film", true),
+                            folder(TV_ID, "Serie TV", true),
+                            folder(LIVE_ID, "TV in diretta", true)
                         )
                         parentId == MUSIC_ID -> loadAlbums()
-                        parentId == VIDEO_ID -> loadMovies()
-                        parentId.startsWith(ALBUM_PREFIX) -> loadSongs(parentId.removePrefix(ALBUM_PREFIX).toInt())
+                        parentId == MOVIES_ID -> loadMovies()
+                        parentId == TV_ID -> loadTvShows()
+                        parentId == LIVE_ID -> loadChannels()
+                        parentId.startsWith(ALBUM_PREFIX) ->
+                            loadSongs(parentId.removePrefix(ALBUM_PREFIX).toInt())
+                        parentId.startsWith(TVSHOW_PREFIX) ->
+                            loadEpisodes(parentId.removePrefix(TVSHOW_PREFIX).toInt())
                         else -> emptyList()
                     }
                     val from = (page * pageSize).coerceIn(0, children.size)
                     val to = (from + pageSize).coerceIn(from, children.size)
-                    future.set(LibraryResult.ofItemList(ImmutableList.copyOf(children.subList(from, to)), params))
-                } catch (error: Exception) {
-                    val hint = if (parentId == ROOT_ID) {
-                        "Avvia Kodi Auto e abilita il controllo locale in Impostazioni > Servizi > Controllo."
-                    } else {
-                        "Libreria Kodi non disponibile. Verifica che Kodi sia aperto e che il controllo locale sia attivo."
-                    }
+                    future.set(
+                        LibraryResult.ofItemList(
+                            ImmutableList.copyOf(children.subList(from, to)),
+                            params
+                        )
+                    )
+                } catch (_: Exception) {
                     val item = MediaItem.Builder()
                         .setMediaId("kodi_connection_error")
                         .setMediaMetadata(
                             MediaMetadata.Builder()
                                 .setTitle("Kodi non raggiungibile")
-                                .setSubtitle(hint)
+                                .setSubtitle(
+                                    "Apri Kodi Auto e abilita il controllo locale in Impostazioni > Servizi > Controllo."
+                                )
                                 .setIsBrowsable(false)
                                 .setIsPlayable(false)
                                 .build()
@@ -109,20 +110,22 @@ class KodiAutoMediaLibraryService : MediaLibraryService() {
 
     override fun onCreate() {
         super.onCreate()
-        val player = ExoPlayer.Builder(this).build()
-        librarySession = MediaLibrarySession.Builder(this, player, libraryCallback).build()
+        kodiPlayer = KodiRemotePlayer(worker)
+        librarySession = MediaLibrarySession.Builder(this, kodiPlayer!!, libraryCallback).build()
+        mainHandler.post(pollKodi)
     }
 
-    override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaLibrarySession? {
-        return librarySession
-    }
+    override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaLibrarySession? =
+        librarySession
 
     override fun onDestroy() {
+        mainHandler.removeCallbacks(pollKodi)
         librarySession?.let { session ->
             session.player.release()
             session.release()
         }
         librarySession = null
+        kodiPlayer = null
         worker.shutdownNow()
         super.onDestroy()
     }
@@ -134,14 +137,13 @@ class KodiAutoMediaLibraryService : MediaLibraryService() {
                 val album = albums.getJSONObject(i)
                 val id = album.optInt("albumid", -1)
                 if (id >= 0) {
-                    val artist = album.optJSONArray("artist")?.optString(0).orEmpty()
                     add(
                         MediaItem.Builder()
                             .setMediaId(ALBUM_PREFIX + id)
                             .setMediaMetadata(
                                 MediaMetadata.Builder()
                                     .setTitle(album.optString("title", "Album"))
-                                    .setArtist(artist)
+                                    .setArtist(album.optJSONArray("artist")?.optString(0).orEmpty())
                                     .setIsBrowsable(true)
                                     .setIsPlayable(false)
                                     .build()
@@ -167,6 +169,7 @@ class KodiAutoMediaLibraryService : MediaLibraryService() {
                                 MediaMetadata.Builder()
                                     .setTitle(song.optString("title", "Brano"))
                                     .setArtist(song.optJSONArray("artist")?.optString(0).orEmpty())
+                                    .setAlbumTitle(song.optString("album", ""))
                                     .setIsBrowsable(false)
                                     .setIsPlayable(true)
                                     .build()
@@ -190,8 +193,84 @@ class KodiAutoMediaLibraryService : MediaLibraryService() {
                             .setMediaId("movie:$id")
                             .setMediaMetadata(
                                 MediaMetadata.Builder()
-                                    .setTitle(movie.optString("title", "Video"))
+                                    .setTitle(movie.optString("title", "Film"))
                                     .setSubtitle(movie.optString("year", ""))
+                                    .setIsBrowsable(false)
+                                    .setIsPlayable(true)
+                                    .build()
+                            )
+                            .build()
+                    )
+                }
+            }
+        }
+    }
+
+    private fun loadTvShows(): List<MediaItem> {
+        val shows = KodiJsonRpcClient.tvShows()
+        return buildList {
+            for (i in 0 until shows.length()) {
+                val show = shows.getJSONObject(i)
+                val id = show.optInt("tvshowid", -1)
+                if (id >= 0) {
+                    add(
+                        MediaItem.Builder()
+                            .setMediaId(TVSHOW_PREFIX + id)
+                            .setMediaMetadata(
+                                MediaMetadata.Builder()
+                                    .setTitle(show.optString("title", "Serie TV"))
+                                    .setSubtitle(show.optString("year", ""))
+                                    .setIsBrowsable(true)
+                                    .setIsPlayable(false)
+                                    .build()
+                            )
+                            .build()
+                    )
+                }
+            }
+        }
+    }
+
+    private fun loadEpisodes(tvShowId: Int): List<MediaItem> {
+        val episodes = KodiJsonRpcClient.episodes(tvShowId)
+        return buildList {
+            for (i in 0 until episodes.length()) {
+                val episode = episodes.getJSONObject(i)
+                val id = episode.optInt("episodeid", -1)
+                if (id >= 0) {
+                    val season = episode.optInt("season", 0)
+                    val number = episode.optInt("episode", 0)
+                    add(
+                        MediaItem.Builder()
+                            .setMediaId("episode:$id")
+                            .setMediaMetadata(
+                                MediaMetadata.Builder()
+                                    .setTitle(episode.optString("title", "Episodio"))
+                                    .setSubtitle("Stagione $season · Episodio $number")
+                                    .setIsBrowsable(false)
+                                    .setIsPlayable(true)
+                                    .build()
+                            )
+                            .build()
+                    )
+                }
+            }
+        }
+    }
+
+    private fun loadChannels(): List<MediaItem> {
+        val channels = KodiJsonRpcClient.channels()
+        return buildList {
+            for (i in 0 until channels.length()) {
+                val channel = channels.getJSONObject(i)
+                val id = channel.optInt("channelid", -1)
+                if (id >= 0) {
+                    add(
+                        MediaItem.Builder()
+                            .setMediaId("channel:$id")
+                            .setMediaMetadata(
+                                MediaMetadata.Builder()
+                                    .setTitle(channel.optString("label", "Canale TV"))
                                     .setIsBrowsable(false)
                                     .setIsPlayable(true)
                                     .build()
@@ -218,7 +297,10 @@ class KodiAutoMediaLibraryService : MediaLibraryService() {
     private companion object {
         const val ROOT_ID = "kodiauto_root"
         const val MUSIC_ID = "kodiauto_music"
-        const val VIDEO_ID = "kodiauto_video"
+        const val MOVIES_ID = "kodiauto_movies"
+        const val TV_ID = "kodiauto_tv"
+        const val LIVE_ID = "kodiauto_live"
         const val ALBUM_PREFIX = "album:"
+        const val TVSHOW_PREFIX = "tvshow:"
     }
 }
