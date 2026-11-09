@@ -4,6 +4,7 @@ import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
 import androidx.media3.common.Player
+import androidx.media3.common.util.UnstableApi
 import androidx.media3.common.SimpleBasePlayer
 import com.google.common.util.concurrent.ListenableFuture
 import com.google.common.util.concurrent.SettableFuture
@@ -14,6 +15,7 @@ import java.util.concurrent.ExecutorService
  * Media3 Player facade for Kodi's real playback engine.
  * Android Auto controls are forwarded to Kodi JSON-RPC; Kodi remains the player.
  */
+@OptIn(UnstableApi::class)
 internal class KodiRemotePlayer(
     private val worker: ExecutorService
 ) : SimpleBasePlayer(android.os.Looper.getMainLooper()) {
@@ -45,7 +47,7 @@ internal class KodiRemotePlayer(
             emptyList()
         } else {
             listOf(
-                MediaItemData.Builder(item.mediaId)
+                SimpleBasePlayer.MediaItemData.Builder(item.mediaId)
                     .setMediaItem(item)
                     .setDurationUs(if (durationMs > 0) durationMs * 1000 else C.TIME_UNSET)
                     .setIsSeekable(true)
