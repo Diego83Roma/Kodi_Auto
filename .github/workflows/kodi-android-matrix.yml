@@ -202,8 +202,8 @@ jobs:
           for permission in permissions:
               if f'android:name="{permission}"' not in xml:
                   xml, count = re.subn(
-                      r'(<manifest\\b[^>]*>)',
-                      r'\\1\\n    <uses-permission android:name="' + permission + '" />',
+                      r'(<manifest\b[^>]*>)',
+                      r'\1\n    <uses-permission android:name="' + permission + '" />',
                       xml,
                       count=1
                   )
@@ -212,8 +212,8 @@ jobs:
 
           if 'com.google.android.gms.car.application' not in xml:
               xml, count = re.subn(
-                  r'(<application\\b[^>]*>)',
-                  r'\\1\\n        <meta-data android:name="com.google.android.gms.car.application" android:resource="@xml/automotive_app_desc" />',
+                  r'(<application\b[^>]*>)',
+                  r'\1\n        <meta-data android:name="com.google.android.gms.car.application" android:resource="@xml/automotive_app_desc" />',
                   xml,
                   count=1
               )
@@ -253,7 +253,7 @@ jobs:
               if f'android:name="{component}"' not in xml:
                   if xml.count("</application>") != 1:
                       raise SystemExit("Chiusura application assente o non univoca nel template Kodi")
-                  xml = xml.replace("</application>", service + "\\n</application>", 1)
+                  xml = xml.replace("</application>", service + "\n</application>", 1)
 
           manifest.write_text(xml, encoding="utf-8")
 
