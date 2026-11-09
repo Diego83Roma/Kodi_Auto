@@ -138,6 +138,16 @@ internal object KodiJsonRpcClient {
         return call("VideoLibrary.GetMovies", params).optJSONArray("movies") ?: JSONArray()
     }
 
+    fun playlists(): JSONArray =
+        call("Playlist.GetPlaylists").optJSONArray("playlists") ?: JSONArray()
+
+    fun playlistItems(playlistId: Int): JSONArray {
+        val params = JSONObject()
+            .put("playlistid", playlistId)
+            .put("properties", JSONArray().put("title").put("artist").put("album").put("thumbnail").put("type").put("id"))
+        return call("Playlist.GetItems", params).optJSONArray("items") ?: JSONArray()
+    }
+
     fun tvShows(): JSONArray {
         val params = JSONObject()
             .put("properties", JSONArray().put("title").put("year").put("thumbnail"))
