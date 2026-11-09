@@ -101,15 +101,15 @@ jobs:
           sed -i 's/^APP_PACKAGE .*/APP_PACKAGE it.kodiauto.media/' kodi/version.txt
 
           sed -i 's/@APP_NAME@/Kodi Auto/g' \
-            kodi/build/tools/android/packaging/xbmc/strings.xml.in
+            kodi/tools/android/packaging/xbmc/strings.xml.in
 
           echo "Controllo identità:"
           grep -E '^(APP_NAME|APP_PACKAGE) ' kodi/version.txt
-          grep 'app_name' kodi/build/tools/android/packaging/xbmc/strings.xml.in
+          grep 'app_name' kodi/tools/android/packaging/xbmc/strings.xml.in
 
           grep -q '^APP_NAME Kodi$' kodi/version.txt
           grep -q '^APP_PACKAGE it\.kodiauto\.media$' kodi/version.txt
-          grep -q 'Kodi Auto' kodi/build/tools/android/packaging/xbmc/strings.xml.in
+          grep -q 'Kodi Auto' kodi/tools/android/packaging/xbmc/strings.xml.in
 
       - name: Apply original Kodi Auto launcher image
         run: |
