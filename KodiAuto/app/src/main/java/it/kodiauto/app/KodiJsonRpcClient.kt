@@ -153,10 +153,14 @@ internal object KodiJsonRpcClient {
         return call("VideoLibrary.GetEpisodes", params).optJSONArray("episodes") ?: JSONArray()
     }
 
-    fun channels(): JSONArray {
+    fun channels(): JSONArray = pvrChannels("tv")
+
+    fun radioChannels(): JSONArray = pvrChannels("radio")
+
+    private fun pvrChannels(channelType: String): JSONArray {
         val groups = call(
             "PVR.GetChannelGroups",
-            JSONObject().put("channeltype", "tv")
+            JSONObject().put("channeltype", channelType)
                 .put("limits", JSONObject().put("start", 0).put("end", 20))
         ).optJSONArray("channelgroups") ?: JSONArray()
         if (groups.length() == 0) return JSONArray()
