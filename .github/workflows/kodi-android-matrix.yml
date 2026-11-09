@@ -72,6 +72,7 @@ jobs:
               "dialog_tint": "FF080D0A",
               "dialog_header_tint": "FF064D27",
               "button_focus": "FF00FF41",
+              "border_alpha": "9900FF41",
               "button_alt_focus": "9900FF41",
               "selected": "FF00FF41",
               "blue": "FF00E83A",
@@ -190,80 +191,14 @@ jobs:
           echo "Logo Kodi Auto copiato nel percorso originale usato da Estuary."
           echo "Home.xml lasciato intatto per mantenere il collegamento standard di Kodi."
 
-      - name: Personalize Kodi Auto home navigation
+      - name: Preserve original Kodi navigation and Matrix styling
         working-directory: kodi
         run: |
           python3 - <<'PY'
           from pathlib import Path
-          import re
 
-          home = Path("addons/skin.estuary/xml/Home.xml")
-          data = home.read_text(encoding="utf-8")
-
-          # Change only the labels in the main home menu, keeping Kodi's
-          # original actions, content IDs, visibility rules and TV/PVR links.
-          start = data.find('<control type="fixedlist" id="9000">')
-          if start < 0:
-              raise SystemExit("Menu principale Estuary non trovato")
-          content_start = data.find("<content>", start)
-          content_end = data.find("</content>", content_start)
-          if content_start < 0 or content_end < 0:
-              raise SystemExit("Elenco voci menu non trovato")
-
-          menu = data[content_start:content_end]
-          labels = {
-              "$LOCALIZE[342]": "FILM",
-              "$LOCALIZE[20343]": "SERIE TV",
-              "$LOCALIZE[2]": "MUSICA",
-              "$LOCALIZE[19020]": "TV IN DIRETTA",
-              "$LOCALIZE[19021]": "RADIO",
-              "$LOCALIZE[3]": "VIDEO",
-              "$LOCALIZE[24001]": "COMPONENTI",
-              "$LOCALIZE[10134]": "PREFERITI",
-          }
-          for old, new in labels.items():
-              if old not in menu:
-                  raise SystemExit(f"Voce menu non trovata: {old}")
-              menu = menu.replace(old, new, 1)
-
-          data = data[:content_start] + menu + data[content_end:]
-          home.write_text(data, encoding="utf-8")
-          print("Menu principale Kodi Auto personalizzato; funzioni Kodi originali conservate.")
-          PY
-
-          grep -q '<label>TV IN DIRETTA</label>' addons/skin.estuary/xml/Home.xml
-          grep -q '<label>MUSICA</label>' addons/skin.estuary/xml/Home.xml
-
-          # Give the Kodi Auto home navigation a larger, more touch-friendly
-          # layout while retaining Estuary's original focus animations/actions.
-          python3 - <<'PY'
-          from pathlib import Path
-
-          home = Path("addons/skin.estuary/xml/Home.xml")
-          data = home.read_text(encoding="utf-8")
-          start = data.find('<control type="fixedlist" id="9000">')
-          if start < 0:
-              raise SystemExit("Menu Kodi Auto non trovato per il layout touch")
-          # Edit only the menu and the first matching layout values after its start.
-          before, menu = data[:start], data[start:]
-          menu = menu.replace('<focusedlayout height="95">', '<focusedlayout height="108">', 1)
-          menu = menu.replace('<itemlayout height="95">', '<itemlayout height="108">', 1)
-          menu = menu.replace('<width>95</width>', '<width>108</width>', 4)
-          menu = menu.replace('<height>95</height>', '<height>108</height>', 6)
-          menu = menu.replace('<left>104</left>', '<left>118</left>', 2)
-          if '<focusedlayout height="108">' not in menu or '<itemlayout height="108">' not in menu:
-              raise SystemExit("Layout touch maggiorato non applicato")
-          home.write_text(before + menu, encoding="utf-8")
-          print("Menu iniziale Kodi Auto: spaziatura e icone ingrandite per il touch.")
-          PY
-
-          grep -q '<focusedlayout height="108">' addons/skin.estuary/xml/Home.xml
-
-          # Estuary already defines a touch back control in its TopBar.
-          # Make its icon visible on every screen that uses the navigation bar.
-          python3 - <<'PY'
-          from pathlib import Path
-
+          # Keep Estuary's original menu entries, order, labels, actions and layout.
+          # Only expose the existing touch back control outside the home screen.
           includes = Path("addons/skin.estuary/xml/Includes.xml")
           data = includes.read_text(encoding="utf-8")
           old = '<include condition="Skin.HasSetting(touchmode) + !Window.IsActive(home)">TouchBackButton</include>'
@@ -272,10 +207,11 @@ jobs:
               raise SystemExit("Richiamo TouchBackButton di Estuary non trovato")
           data = data.replace(old, new, 1)
           includes.write_text(data, encoding="utf-8")
-          print("Pulsante touch Indietro attivato nella barra superiore.")
+          print("Navigazione originale di Kodi conservata; pulsante Indietro touch mantenuto.")
           PY
 
           grep -q '<include condition="!Window.IsActive(home)">TouchBackButton</include>' addons/skin.estuary/xml/Includes.xml
+          grep -q 'border_alpha' addons/skin.estuary/colors/defaults.xml
 
       - name: Bootstrap Kodi dependencies
         working-directory: kodi/tools/depends
