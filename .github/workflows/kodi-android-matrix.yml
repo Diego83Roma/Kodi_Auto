@@ -302,15 +302,9 @@ jobs:
                   1
               )
 
-          if "kotlin.directories.add('java')" not in text:
-              text = text.replace(
-                  "java.srcDirs = ['java']",
-                  "java.srcDirs = ['java']\n            kotlin.directories.add('java')",
-                  1
-              )
-
-          if "kotlin.directories.add('java')" not in text:
-              raise SystemExit("Directory Kotlin non configurata nel modulo Kodi")
+          # AGP 9.2 built-in Kotlin compiles .kt files from the
+          # existing main Java source directory; no separate Kotlin
+          # source-set DSL is needed here.
           gradle.write_text(text, encoding="utf-8")
 
           manifest = module / "AndroidManifest.xml"
