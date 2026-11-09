@@ -264,7 +264,7 @@ jobs:
       - name: Integrate Android Auto into the single Kodi APK
         run: |
           set -euo pipefail
-          PKG_DIR="kodi/build/tools/android/packaging/xbmc"
+          PKG_DIR="kodi/tools/android/packaging/xbmc"
           SRC="KodiAuto/app/src/main/java/it/kodiauto/app"
 
           test -f "$PKG_DIR/build.gradle"
@@ -288,7 +288,7 @@ jobs:
           from pathlib import Path
           import re
 
-          module = Path("kodi/build/tools/android/packaging/xbmc")
+          module = Path("kodi/tools/android/packaging/xbmc")
           gradle = module / "build.gradle"
           text = gradle.read_text(encoding="utf-8")
 
