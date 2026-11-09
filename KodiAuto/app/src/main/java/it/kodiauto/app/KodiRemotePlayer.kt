@@ -82,6 +82,10 @@ internal class KodiRemotePlayer(
                 KodiJsonRpcClient.openChannel(selected.mediaId.removePrefix("channel:").toInt())
             else -> throw IllegalArgumentException("Tipo di contenuto Kodi non supportato")
         }
+        // Kodi uses different player IDs for audio and video. Read the active
+        // player immediately so the first transport command reaches the right one.
+        val opened = KodiJsonRpcClient.playbackState()
+        kodiPlayerId = opened.optInt("playerid", kodiPlayerId)
         currentItem = selected
         positionMs = startPositionMs.coerceAtLeast(0)
         durationMs = C.TIME_UNSET
