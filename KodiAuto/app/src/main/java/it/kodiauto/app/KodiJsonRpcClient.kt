@@ -51,6 +51,71 @@ internal object KodiJsonRpcClient {
         call("Player.Open", JSONObject().put("item", JSONObject().put("movieid", movieId)))
     }
 
+    fun openEpisode(episodeId: Int) {
+        call("Player.Open", JSONObject().put("item", JSONObject().put("episodeid", episodeId)))
+    }
+
+    fun openChannel(channelId: Int) {
+        call("Player.Open", JSONObject().put("item", JSONObject().put("channelid", channelId)))
+    }
+
+    fun setPlaying(playing: Boolean, playerId: Int) {
+        call("Player.PlayPause", JSONObject().put("playerid", playerId).put("play", playing))
+    }
+
+    fun stop(playerId: Int) {
+        call("Player.Stop", JSONObject().put("playerid", playerId))
+    }
+
+    fun goTo(direction: String, playerId: Int) {
+        call("Player.GoTo", JSONObject().put("playerid", playerId).put("to", direction))
+    }
+
+    fun seek(positionMs: Long, playerId: Int) {
+        val totalMs = positionMs.coerceAtLeast(0)
+        val time = JSONObject()
+            .put("hours", totalMs / 3_600_000)
+            .put("minutes", (totalMs % 3_600_000) / 60_000)
+            .put("seconds", (totalMs % 60_000) / 1_000)
+            .put("milliseconds", totalMs % 1_000)
+        call("Player.Seek", JSONObject().put("playerid", playerId).put("value", JSONObject().put("time", time)))
+    }
+
+    fun playbackState(): JSONObject {
+        val active = call("Player.GetActivePlayers").optJSONArray("players") ?: JSONArray()
+        if (active.length() == 0) return JSONObject().put("active", false)
+        val playerId = active.getJSONObject(0).optInt("playerid", 1)
+        val properties = call(
+            "Player.GetProperties",
+            JSONObject()
+                .put("playerid", playerId)
+                .put("properties", JSONArray()
+                    .put("time")
+                    .put("totaltime")
+                    .put("speed")
+                    .put("percentage")
+                    .put("canseek"))
+        )
+        val itemResult = call(
+            "Player.GetItem",
+            JSONObject()
+                .put("playerid", playerId)
+                .put("properties", JSONArray()
+                    .put("title")
+                    .put("artist")
+                    .put("album")
+                    .put("year")
+                    .put("thumbnail")
+                    .put("type")
+                    .put("id"))
+        )
+        return JSONObject()
+            .put("active", true)
+            .put("playerid", playerId)
+            .put("properties", properties)
+            .put("item", itemResult.optJSONObject("item") ?: JSONObject())
+    }
+
     fun albums(): JSONArray {
         val params = JSONObject()
             .put("properties", JSONArray().put("title").put("artist").put("year").put("thumbnail"))
