@@ -123,8 +123,8 @@ jobs:
 
           if 'com.google.android.gms.car.application' not in xml:
               xml, count = re.subn(
-                  r'(<application\\b[^>]*>)',
-                  r'\\1\\n<meta-data android:name="com.google.android.gms.car.application" android:resource="@xml/automotive_app_desc" />',
+                  r'(<application\b[^>]*>)',
+                  r'\1\n<meta-data android:name="com.google.android.gms.car.application" android:resource="@xml/automotive_app_desc" />',
                   xml,
                   count=1
               )
@@ -147,7 +147,7 @@ jobs:
           """
               if "</application>" not in xml:
                   raise SystemExit("Chiusura application non trovata nel template Kodi")
-              xml = xml.replace("</application>", service + "\\n</application>", 1)
+              xml = xml.replace("</application>", service + "\n</application>", 1)
 
           manifest.write_text(xml, encoding="utf-8")
           assert 'com.google.android.gms.car.application' in xml
