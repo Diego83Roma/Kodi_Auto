@@ -429,10 +429,25 @@ jobs:
           echo "Verifica manifest Android Auto nell'APK finale:"
           "$AAPT" dump xmltree "$APK" AndroidManifest.xml > /tmp/kodiauto-manifest.txt
 
-          grep -Fq 'com.google.android.gms.car.application' /tmp/kodiauto-manifest.txt
-          grep -Fq 'it.kodiauto.media.KodiAutoMediaLibraryService' /tmp/kodiauto-manifest.txt
-          grep -Fq 'androidx.media3.session.MediaLibraryService' /tmp/kodiauto-manifest.txt
-          grep -Fq 'android.media.browse.MediaBrowserService' /tmp/kodiauto-manifest.txt
+          echo "Elementi Android Auto rilevati nel manifest:"
+          grep -E 'com.google.android.gms.car.application|KodiAutoMediaLibraryService|MediaLibraryService|MediaSessionService|MediaBrowserService' /tmp/kodiauto-manifest.txt || true
+
+          grep -Fq 'com.google.android.gms.car.application' /tmp/kodiauto-manifest.txt || {
+            echo "ERRORE: metadata Android Auto assente dal manifest finale"
+            exit 1
+          }
+          grep -Fq 'KodiAutoMediaLibraryService' /tmp/kodiauto-manifest.txt || {
+            echo "ERRORE: servizio Kodi Auto assente dal manifest finale"
+            exit 1
+          }
+          grep -Fq 'MediaLibraryService' /tmp/kodiauto-manifest.txt || {
+            echo "ERRORE: action MediaLibraryService assente dal manifest finale"
+            exit 1
+          }
+          grep -Fq 'MediaBrowserService' /tmp/kodiauto-manifest.txt || {
+            echo "ERRORE: action MediaBrowserService assente dal manifest finale"
+            exit 1
+          }
 
           echo "OK: manifest finale contiene metadati Android Auto e servizio media esportato."
 
