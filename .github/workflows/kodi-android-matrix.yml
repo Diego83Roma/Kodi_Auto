@@ -417,7 +417,7 @@ jobs:
                       </intent-filter>
                   </service>
               '''
-              xml = xml.replace("    </application>", car_service + "\\n    </application>", 1)
+              xml = xml.replace("    </application>", car_service + "\n    </application>", 1)
 
           manifest.write_text(xml, encoding="utf-8")
           PY
