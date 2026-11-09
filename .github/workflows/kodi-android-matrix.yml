@@ -68,12 +68,17 @@ jobs:
 
           source = Path("xbmc/utils/StringUtils.cpp")
           data = source.read_text(encoding="utf-8")
-          old = """  JNIEnv* env = xbmc_jnienv();
-  return xg::newGuid(env).str();"""
-          new = """  return xg::newGuid().str();"""
-          if data.count(old) != 1:
-              raise SystemExit("Chiamata UUID Android attesa non trovata una sola volta")
-          source.write_text(data.replace(old, new, 1), encoding="utf-8")
+          import re
+          pattern = r'(#ifdef TARGET_ANDROID\s*)JNIEnv\* env = xbmc_jnienv\(\);\s*return xg::newGuid\(env\)\.str\(\);'
+          updated, count = re.subn(
+              pattern,
+              r'\1return xg::newGuid().str();',
+              data,
+              count=1
+          )
+          if count != 1:
+              raise SystemExit("Blocco UUID Android non trovato: verifica della sorgente Kodi fallita")
+          source.write_text(updated, encoding="utf-8")
           print("Compatibilità crossguid corretta: xg::newGuid() senza parametro JNIEnv.")
           PY
           grep -n -A5 -B2 'std::string StringUtils::CreateUUID' xbmc/utils/StringUtils.cpp
