@@ -31,8 +31,8 @@ internal class KodiRemotePlayer(
             Player.COMMAND_PLAY_PAUSE,
             Player.COMMAND_STOP,
             Player.COMMAND_SEEK_IN_CURRENT_MEDIA_ITEM,
-            Player.COMMAND_SEEK_TO_NEXT_MEDIA_ITEM,
-            Player.COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM,
+            Player.COMMAND_SEEK_TO_NEXT,
+            Player.COMMAND_SEEK_TO_PREVIOUS,
             Player.COMMAND_SET_MEDIA_ITEM,
             Player.COMMAND_CHANGE_MEDIA_ITEMS,
             Player.COMMAND_GET_CURRENT_MEDIA_ITEM,
@@ -107,8 +107,8 @@ internal class KodiRemotePlayer(
         seekCommand: Int
     ): ListenableFuture<*> = async {
         when (seekCommand) {
-            Player.COMMAND_SEEK_TO_NEXT_MEDIA_ITEM -> KodiJsonRpcClient.goTo("next", kodiPlayerId)
-            Player.COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM -> KodiJsonRpcClient.goTo("previous", kodiPlayerId)
+            Player.COMMAND_SEEK_TO_NEXT -> KodiJsonRpcClient.goTo("next", kodiPlayerId)
+            Player.COMMAND_SEEK_TO_PREVIOUS -> KodiJsonRpcClient.goTo("previous", kodiPlayerId)
             else -> KodiJsonRpcClient.seek(positionMs, kodiPlayerId)
         }
         if (positionMs >= 0) this.positionMs = positionMs
