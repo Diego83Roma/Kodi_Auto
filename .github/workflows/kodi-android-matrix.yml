@@ -115,7 +115,7 @@ jobs:
         run: |
           RES="kodi/build/tools/android/packaging/xbmc/res"
 
-          mkdir -p "$RES/drawable-nodpi"
+          mkdir -p "$RES/drawable-nodpi" "$RES/drawable"
 
           cp KodiAuto/kodiauto-icon.png \
             "$RES/drawable-nodpi/kodiauto_icon.png"
