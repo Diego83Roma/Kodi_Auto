@@ -327,15 +327,15 @@ jobs:
             "$SRC/KodiAutoMediaLibraryService.kt" > "$KOTLIN_DIR/KodiAutoMediaLibraryService.kt"
           sed 's/^package it\.kodiauto\.app$/package it.kodiauto.media/' \
             "$SRC/KodiJsonRpcClient.kt" > "$KOTLIN_DIR/KodiJsonRpcClient.kt"
-          sed 's/^package it\\.kodiauto\\.app$/package it.kodiauto.media/' \\
+          sed 's/^package it\.kodiauto\.app$/package it.kodiauto.media/' \
             "$SRC/KodiRemotePlayer.kt" > "$KOTLIN_DIR/KodiRemotePlayer.kt"
-          sed 's/^package it\\.kodiauto\\.app;$/package it.kodiauto.media;/' \\
+          sed 's/^package it\.kodiauto\.app;$/package it.kodiauto.media;/' \
             "$SRC/KodiAutoCarService.java" > "$KOTLIN_DIR/KodiAutoCarService.java"
-          sed 's/^package it\\.kodiauto\\.app;$/package it.kodiauto.media;/' \\
+          sed 's/^package it\.kodiauto\.app;$/package it.kodiauto.media;/' \
             "$SRC/KodiAutoCarActivity.java" > "$KOTLIN_DIR/KodiAutoCarActivity.java"
           mkdir -p "$PKG_DIR/libs"
-          curl -fL --retry 3 \\
-            https://raw.githubusercontent.com/AndreyPavlenko/Fermata/65a3c1632b5c3ded8f036c025458f7b77f780f8d/fermata/lib/auto/aauto.aar \\
+          curl -fL --retry 3 \
+            https://raw.githubusercontent.com/AndreyPavlenko/Fermata/65a3c1632b5c3ded8f036c025458f7b77f780f8d/fermata/lib/auto/aauto.aar \
             -o "$PKG_DIR/libs/aauto.aar"
           test -s "$PKG_DIR/libs/aauto.aar"
           cp KodiAuto/app/src/main/res/xml/automotive_app_desc.xml \
