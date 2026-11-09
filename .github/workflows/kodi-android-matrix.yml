@@ -298,7 +298,7 @@ jobs:
               if dependency not in text:
                   text = text.replace(
                       "dependencies {",
-                      "dependencies {\\n    " + dependency,
+                      "dependencies {\n    " + dependency,
                       1
                   )
 
