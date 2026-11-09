@@ -432,7 +432,7 @@ jobs:
       - name: Verify Kodi Auto package ID
         run: |
           APK=$(find kodi -maxdepth 1 \
-            -name 'kodiapp-arm64-v8a-debug.apk' -print -quit)
+            -name 'kodiapp-arm64-v8a-release.apk' -print -quit)
 
           if [ -z "$APK" ]; then
             echo "ERROR: APK non trovato"
