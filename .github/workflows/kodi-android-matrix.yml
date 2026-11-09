@@ -7,6 +7,7 @@ on:
       - Kodi-engine
       - fermata-integration
       - fermata-complete-integration
+      - kodiauto-modern-ui
 
 jobs:
   build-kodi:
@@ -96,6 +97,70 @@ jobs:
 
           grep -q 'FF00FF41' addons/skin.estuary/colors/defaults.xml
           grep -q 'FF000000' addons/skin.estuary/colors/defaults.xml
+
+
+      - name: Apply modern Matrix borders to Kodi dialogs and panels
+        working-directory: kodi
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+
+          includes = Path("addons/skin.estuary/xml/Includes.xml")
+          data = includes.read_text(encoding="utf-8")
+
+          # Guard the existing Back button hook: this step must not alter it.
+          back_hook = '<include condition="Skin.HasSetting(touchmode) + !Window.IsActive(home)">TouchBackButton</include>'
+          if data.count(back_hook) != 1:
+              raise SystemExit("Protezione: richiamo originale TouchBackButton non trovato una sola volta")
+
+          start = data.index('<include name="DialogBackground">')
+          end_marker = '\n\t</include>\n\t<include name="TopBar">'
+          end = data.index(end_marker, start)
+          section = data[start:end]
+
+          anchor = '<texture colordiffuse="dialog_tint">colors/white.png</texture>\n\t\t\t</control>'
+          if section.count(anchor) != 1:
+              raise SystemExit("Sfondo standard dei dialoghi non trovato in modo univoco")
+
+          # Thin neon-green perimeter, a restrained header separator and a
+          # darker double-edge accent. These are decorative image controls:
+          # all existing Kodi controls, IDs, labels and actions remain intact.
+          frame = '''<texture colordiffuse="dialog_tint">colors/white.png</texture>
+          </control>
+          <control type="image">
+              <left>0</left><top>0</top><right>0</right><height>2</height>
+              <texture colordiffuse="button_focus">colors/white.png</texture>
+          </control>
+          <control type="image">
+              <left>0</left><bottom>0</bottom><right>0</right><height>2</height>
+              <texture colordiffuse="border_alpha">colors/white.png</texture>
+          </control>
+          <control type="image">
+              <left>0</left><top>0</top><bottom>0</bottom><width>2</width>
+              <texture colordiffuse="border_alpha">colors/white.png</texture>
+          </control>
+          <control type="image">
+              <right>0</right><top>0</top><bottom>0</bottom><width>2</width>
+              <texture colordiffuse="border_alpha">colors/white.png</texture>
+          </control>
+          <control type="image">
+              <left>0</left><top>68</top><right>0</right><height>2</height>
+              <texture colordiffuse="button_focus">colors/white.png</texture>
+          </control>'''
+          section = section.replace(anchor, frame, 1)
+          updated = data[:start] + section + data[end:]
+
+          if updated.count(back_hook) != 1:
+              raise SystemExit("Protezione: il richiamo TouchBackButton è cambiato")
+          includes.write_text(updated, encoding="utf-8")
+          print("Cornice Matrix applicata ai dialoghi Estuary; controlli e navigazione originali conservati.")
+          PY
+
+          grep -q 'name="DialogBackground"' addons/skin.estuary/xml/Includes.xml
+          grep -q 'colordiffuse="button_focus">colors/white.png' addons/skin.estuary/xml/Includes.xml
+          grep -q '<include condition="Skin.HasSetting(touchmode) + !Window.IsActive(home)">TouchBackButton</include>' addons/skin.estuary/xml/Includes.xml
+          echo "Verifica superata: cornici verdi presenti e pulsante Indietro invariato."
 
       - name: Set Kodi Auto app identity
         run: |
