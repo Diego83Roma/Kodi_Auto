@@ -17,6 +17,7 @@ import java.util.concurrent.Executors
  * Android Auto media browser backed by Kodi's own library and playback engine.
  * The Media3 player is a remote-control facade: Kodi performs the actual playback.
  */
+@OptIn(UnstableApi::class)
 class KodiAutoMediaLibraryService : MediaLibraryService() {
 
     private val worker = Executors.newSingleThreadExecutor()
