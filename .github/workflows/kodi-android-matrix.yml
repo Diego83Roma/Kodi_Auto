@@ -232,10 +232,10 @@ jobs:
         run: |
           make -j2
 
-      - name: Configure Kodi CMake
+      - name: Configure Kodi CMake for Release
         working-directory: kodi
         run: |
-          make -C tools/depends/target/cmakebuildsys
+          make -C tools/depends/target/cmakebuildsys Configuration=Release
 
       - name: Build Kodi
         working-directory: kodi
@@ -384,18 +384,27 @@ jobs:
           test -s "$PKG_DIR/res/xml/automotive_app_desc.xml"
           echo "Integrazione Android Auto inserita nel modulo APK Kodi unico."
 
-      - name: Create Android debug keystore
+      - name: Restore persistent Kodi Auto test-signing key
+        uses: actions/cache@v4
+        with:
+          path: ~/.android/debug.keystore
+          key: kodiauto-test-signing-key-v1
+
+      - name: Create test-signing key if missing
         run: |
           mkdir -p "$HOME/.android"
-          keytool -genkeypair -v \
-            -keystore "$HOME/.android/debug.keystore" \
-            -storepass android \
-            -alias androiddebugkey \
-            -keypass android \
-            -keyalg RSA \
-            -keysize 2048 \
-            -validity 10000 \
-            -dname "CN=Android Debug,O=Android,C=US"
+          if [ ! -s "$HOME/.android/debug.keystore" ]; then
+            keytool -genkeypair -v \
+              -keystore "$HOME/.android/debug.keystore" \
+              -storepass android \
+              -alias androiddebugkey \
+              -keypass android \
+              -keyalg RSA \
+              -keysize 2048 \
+              -validity 10000 \
+              -dname "CN=Kodi Auto Test,O=Kodi Auto,C=IT"
+          fi
+          keytool -list -keystore "$HOME/.android/debug.keystore" -storepass android
 
       - name: Increase Gradle wrapper download timeout
         run: |
@@ -484,6 +493,6 @@ jobs:
       - name: Upload Kodi APK
         uses: actions/upload-artifact@v4
         with:
-          name: Kodi-Android-ARM64
-          path: kodi/kodiapp-arm64-v8a-debug.apk
+          name: KodiAuto-Android-ARM64-Release-Test
+          path: kodi/kodiapp-arm64-v8a-release.apk
           if-no-files-found: error
