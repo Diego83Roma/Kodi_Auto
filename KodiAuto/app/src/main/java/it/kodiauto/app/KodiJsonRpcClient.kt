@@ -138,6 +138,37 @@ internal object KodiJsonRpcClient {
         return call("VideoLibrary.GetMovies", params).optJSONArray("movies") ?: JSONArray()
     }
 
+    fun tvShows(): JSONArray {
+        val params = JSONObject()
+            .put("properties", JSONArray().put("title").put("year").put("thumbnail"))
+            .put("limits", JSONObject().put("start", 0).put("end", 200))
+        return call("VideoLibrary.GetTVShows", params).optJSONArray("tvshows") ?: JSONArray()
+    }
+
+    fun episodes(tvShowId: Int): JSONArray {
+        val params = JSONObject()
+            .put("tvshowid", tvShowId)
+            .put("properties", JSONArray().put("title").put("season").put("episode").put("showtitle").put("thumbnail").put("runtime"))
+            .put("limits", JSONObject().put("start", 0).put("end", 300))
+        return call("VideoLibrary.GetEpisodes", params).optJSONArray("episodes") ?: JSONArray()
+    }
+
+    fun channels(): JSONArray {
+        val groups = call(
+            "PVR.GetChannelGroups",
+            JSONObject().put("channeltype", "tv")
+                .put("limits", JSONObject().put("start", 0).put("end", 20))
+        ).optJSONArray("channelgroups") ?: JSONArray()
+        if (groups.length() == 0) return JSONArray()
+        val groupId = groups.getJSONObject(0).optInt("channelgroupid", -1)
+        if (groupId < 0) return JSONArray()
+        val params = JSONObject()
+            .put("channelgroupid", groupId)
+            .put("properties", JSONArray().put("channel").put("channeltype").put("thumbnail").put("isrecording"))
+            .put("limits", JSONObject().put("start", 0).put("end", 200))
+        return call("PVR.GetChannels", params).optJSONArray("channels") ?: JSONArray()
+    }
+
     private fun readJsonObject(input: java.io.InputStream): String {
         val reader = BufferedReader(InputStreamReader(input, Charsets.UTF_8))
         val out = StringBuilder()
