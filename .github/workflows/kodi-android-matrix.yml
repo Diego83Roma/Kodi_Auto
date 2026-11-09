@@ -335,7 +335,7 @@ jobs:
             "$SRC/KodiAutoCarActivity.java" > "$KOTLIN_DIR/KodiAutoCarActivity.java"
           mkdir -p "$PKG_DIR/libs"
           curl -fL --retry 3 \\
-            https://raw.githubusercontent.com/AndreyPavlenko/Fermata/2.0.2/fermata/lib/auto/aauto.aar \\
+            https://raw.githubusercontent.com/AndreyPavlenko/Fermata/65a3c1632b5c3ded8f036c025458f7b77f780f8d/fermata/lib/auto/aauto.aar \\
             -o "$PKG_DIR/libs/aauto.aar"
           test -s "$PKG_DIR/libs/aauto.aar"
           cp KodiAuto/app/src/main/res/xml/automotive_app_desc.xml \
