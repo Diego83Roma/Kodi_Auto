@@ -5,6 +5,7 @@ on:
   push:
     branches:
       - Kodi-engine
+      - fermata-integration
 
 jobs:
   build-kodi:
