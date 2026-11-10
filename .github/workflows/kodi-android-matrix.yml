@@ -7,6 +7,7 @@ on:
       - Kodi-engine
       - fermata-integration
       - testE-48-no-remote-sync-carprojection
+      - test83-add-mediasessionservice
 
 jobs:
   build-kodi:
@@ -184,7 +185,7 @@ jobs:
           for q in permissions:
               if q not in x: x=x.replace("<application",f'<uses-permission android:name="{q}" />\n    <application',1)
           if 'android:name=".KodiAutoMediaLibraryService"' not in x:
-              x=x.replace("</application>",'<service android:name=".KodiAutoMediaLibraryService" android:label="Kodi Auto" android:exported="true" android:foregroundServiceType="mediaPlayback"><intent-filter><action android:name="androidx.media3.session.MediaLibraryService" /><action android:name="android.media.browse.MediaBrowserService" /></intent-filter></service>\n</application>',1)
+              x=x.replace("</application>",'<service android:name=".KodiAutoMediaLibraryService" android:label="Kodi Auto" android:exported="true" android:foregroundServiceType="mediaPlayback"><intent-filter><action android:name="androidx.media3.session.MediaLibraryService" /><action android:name="androidx.media3.session.MediaSessionService" /><action android:name="android.media.browse.MediaBrowserService" /></intent-filter></service>\n</application>',1)
           if 'android:name=".KodiAutoCarService"' not in x:
               x=x.replace("</application>",'<service android:name=".KodiAutoCarService" android:exported="true" android:label="Kodi Auto"><intent-filter><action android:name="android.intent.action.MAIN" /><category android:name="com.google.android.gms.car.category.CATEGORY_PROJECTION" /><category android:name="com.google.android.gms.car.category.CATEGORY_PROJECTION_OEM" /></intent-filter></service>\n</application>',1)
           p.write_text(x,encoding="utf-8")
@@ -405,7 +406,7 @@ jobs:
               x,n=re.subn(r'(<application\b[^>]*>)',r'\1\n<meta-data android:name="com.google.android.gms.car.application" android:resource="@xml/automotive_app_desc" />',x,count=1)
               if n!=1: raise SystemExit("Metadata Android Auto mancanti")
           if 'android:name=".KodiAutoMediaLibraryService"' not in x:
-              x=x.replace("</application>",'<service android:name=".KodiAutoMediaLibraryService" android:exported="true" android:foregroundServiceType="mediaPlayback"><intent-filter><action android:name="androidx.media3.session.MediaLibraryService" /><action android:name="android.media.browse.MediaBrowserService" /></intent-filter></service>\n</application>',1)
+              x=x.replace("</application>",'<service android:name=".KodiAutoMediaLibraryService" android:exported="true" android:foregroundServiceType="mediaPlayback"><intent-filter><action android:name="androidx.media3.session.MediaLibraryService" /><action android:name="androidx.media3.session.MediaSessionService" /><action android:name="android.media.browse.MediaBrowserService" /></intent-filter></service>\n</application>',1)
           if 'android:name=".KodiAutoCarService"' not in x:
               x=x.replace("</application>",'<service android:name=".KodiAutoCarService" android:exported="true"><intent-filter><action android:name="android.intent.action.MAIN" /><category android:name="com.google.android.gms.car.category.CATEGORY_PROJECTION" /><category android:name="com.google.android.gms.car.category.CATEGORY_PROJECTION_OEM" /></intent-filter></service>\n</application>',1)
           p.write_text(x,encoding="utf-8")
@@ -490,7 +491,7 @@ jobs:
           "$AAPT" dump xmltree "$APK" AndroidManifest.xml > /tmp/kodiauto-manifest.txt
 
           echo "Elementi Android Auto rilevati nel manifest:"
-          grep -E 'com.google.android.gms.car.application|KodiAutoMediaLibraryService|KodiAutoCarService|CATEGORY_PROJECTION|MediaLibraryService|MediaBrowserService' /tmp/kodiauto-manifest.txt || true
+          grep -E 'com.google.android.gms.car.application|KodiAutoMediaLibraryService|KodiAutoCarService|CATEGORY_PROJECTION|MediaLibraryService|MediaSessionService|MediaBrowserService' /tmp/kodiauto-manifest.txt || true
 
           grep -Fq 'com.google.android.gms.car.application' /tmp/kodiauto-manifest.txt || {
             echo "ERRORE: metadata Android Auto assente dal manifest finale"
@@ -504,6 +505,10 @@ jobs:
             echo "ERRORE: action MediaLibraryService assente dal manifest finale"
             exit 1
           }
+          grep -Fq 'MediaSessionService' /tmp/kodiauto-manifest.txt || {
+            echo "ERRORE: action MediaSessionService assente dal manifest finale"
+            exit 1
+          }
           grep -Fq 'MediaBrowserService' /tmp/kodiauto-manifest.txt || {
             echo "ERRORE: action MediaBrowserService assente dal manifest finale"
             exit 1
@@ -511,7 +516,7 @@ jobs:
 
           grep -Fq "KodiAutoCarService" /tmp/kodiauto-manifest.txt
           grep -Fq "CATEGORY_PROJECTION" /tmp/kodiauto-manifest.txt
-          echo "OK: manifest finale contiene MediaLibrary e Car Projection."
+          echo "OK: manifest finale contiene MediaLibrary, MediaSessionService e Car Projection."
 
       - name: Upload Kodi APK
         uses: actions/upload-artifact@v4
