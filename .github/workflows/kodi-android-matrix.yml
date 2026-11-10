@@ -328,6 +328,42 @@ jobs:
             --with-sdk-path=$ANDROID_HOME \
             --prefix=$HOME/android-tools/xbmc-depends
 
+      - name: Create Android debug keystore
+        run: |
+          mkdir -p "$HOME/.android"
+          keytool -genkeypair -v \
+            -keystore "$HOME/.android/debug.keystore" \
+            -storepass android \
+            -alias androiddebugkey \
+            -keypass android \
+            -keyalg RSA \
+            -keysize 2048 \
+            -validity 10000 \
+            -dname "CN=Android Debug,O=Android,C=US"
+
+      - name: Increase Gradle wrapper download timeout
+        run: |
+          set -e
+          mapfile -t WRAPPERS < <(find kodi -type f -name gradle-wrapper.properties -print)
+          if [ "${#WRAPPERS[@]}" -eq 0 ]; then
+            echo "ERROR: nessun gradle-wrapper.properties trovato"
+            exit 1
+          fi
+          for WRAPPER in "${WRAPPERS[@]}"; do
+            if grep -q '^networkTimeout=' "$WRAPPER"; then
+              sed -i 's/^networkTimeout=.*/networkTimeout=180000/' "$WRAPPER"
+            else
+              echo 'networkTimeout=180000' >> "$WRAPPER"
+            fi
+            echo "Configurazione Gradle aggiornata: $WRAPPER"
+            grep -E '^(distributionUrl|networkTimeout)=' "$WRAPPER"
+          done
+
+      - name: Build Kodi dependencies
+        working-directory: kodi/tools/depends
+        run: |
+          make -j2
+
       - name: Configure Kodi CMake
         working-directory: kodi
         run: |
@@ -470,42 +506,6 @@ jobs:
           grep -q 'androidx.car.app:app:1.7.0' "$PKG_DIR/build.gradle"
           grep -q '<uses name="projection" />' "$PKG_DIR/res/xml/automotive_app_desc.xml"
           echo "CHECK OK: MediaLibrary + Car Projection/Fermata integrate prima delle compilazioni lunghe."
-
-      - name: Create Android debug keystore
-        run: |
-          mkdir -p "$HOME/.android"
-          keytool -genkeypair -v \
-            -keystore "$HOME/.android/debug.keystore" \
-            -storepass android \
-            -alias androiddebugkey \
-            -keypass android \
-            -keyalg RSA \
-            -keysize 2048 \
-            -validity 10000 \
-            -dname "CN=Android Debug,O=Android,C=US"
-
-      - name: Increase Gradle wrapper download timeout
-        run: |
-          set -e
-          mapfile -t WRAPPERS < <(find kodi -type f -name gradle-wrapper.properties -print)
-          if [ "${#WRAPPERS[@]}" -eq 0 ]; then
-            echo "ERROR: nessun gradle-wrapper.properties trovato"
-            exit 1
-          fi
-          for WRAPPER in "${WRAPPERS[@]}"; do
-            if grep -q '^networkTimeout=' "$WRAPPER"; then
-              sed -i 's/^networkTimeout=.*/networkTimeout=180000/' "$WRAPPER"
-            else
-              echo 'networkTimeout=180000' >> "$WRAPPER"
-            fi
-            echo "Configurazione Gradle aggiornata: $WRAPPER"
-            grep -E '^(distributionUrl|networkTimeout)=' "$WRAPPER"
-          done
-
-      - name: Build Kodi dependencies
-        working-directory: kodi/tools/depends
-        run: |
-          make -j2
 
       - name: Build Kodi
         working-directory: kodi
