@@ -5,7 +5,7 @@ on:
   push:
     branches:
       - Kodi-engine
-      - fermata-integration
+      - fermata-integration\n      - testD-48-remoteplayer-sync
 
 jobs:
   build-kodi:
@@ -71,7 +71,7 @@ jobs:
               "secondary_background": "6600FF41",
               "dialog_tint": "FF080D0A",
               "dialog_header_tint": "FF064D27",
-              "button_focus": "FF00FF41",
+              "button_focus": "FF00FF41",\n              "border_alpha": "9900FF41",
               "button_alt_focus": "9900FF41",
               "selected": "FF00FF41",
               "blue": "FF00E83A",
@@ -94,6 +94,62 @@ jobs:
 
           grep -q 'FF00FF41' addons/skin.estuary/colors/defaults.xml
           grep -q 'FF000000' addons/skin.estuary/colors/defaults.xml
+
+      - name: Apply modern Matrix borders to Kodi dialogs and panels
+        working-directory: kodi
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+
+          includes = Path("addons/skin.estuary/xml/Includes.xml")
+          data = includes.read_text(encoding="utf-8")
+          back_hook = '<include condition="Skin.HasSetting(touchmode) + !Window.IsActive(home)">TouchBackButton</include>'
+          if data.count(back_hook) != 1:
+              raise SystemExit("Protezione: richiamo originale TouchBackButton non trovato una sola volta")
+
+          start = data.index('<include name="DialogBackground">')
+          end_marker = '\n\t</include>\n\t<include name="TopBar">'
+          end = data.index(end_marker, start)
+          section = data[start:end]
+          anchor = '<texture colordiffuse="dialog_tint">colors/white.png</texture>\n\t\t\t</control>'
+          if section.count(anchor) != 1:
+              raise SystemExit("Sfondo standard dei dialoghi non trovato in modo univoco")
+
+          frame = '''<texture colordiffuse="dialog_tint">colors/white.png</texture>
+          </control>
+          <control type="image">
+              <left>0</left><top>0</top><right>0</right><height>2</height>
+              <texture colordiffuse="button_focus">colors/white.png</texture>
+          </control>
+          <control type="image">
+              <left>0</left><bottom>0</bottom><right>0</right><height>2</height>
+              <texture colordiffuse="border_alpha">colors/white.png</texture>
+          </control>
+          <control type="image">
+              <left>0</left><top>0</top><bottom>0</bottom><width>2</width>
+              <texture colordiffuse="border_alpha">colors/white.png</texture>
+          </control>
+          <control type="image">
+              <right>0</right><top>0</top><bottom>0</bottom><width>2</width>
+              <texture colordiffuse="border_alpha">colors/white.png</texture>
+          </control>
+          <control type="image">
+              <left>0</left><top>68</top><right>0</right><height>2</height>
+              <texture colordiffuse="button_focus">colors/white.png</texture>
+          </control>'''
+          section = section.replace(anchor, frame, 1)
+          updated = data[:start] + section + data[end:]
+          if updated.count(back_hook) != 1:
+              raise SystemExit("Protezione: il richiamo TouchBackButton è cambiato")
+          includes.write_text(updated, encoding="utf-8")
+          print("Cornici Matrix applicate; controlli e navigazione originali conservati.")
+          PY
+
+          grep -q 'name="DialogBackground"' addons/skin.estuary/xml/Includes.xml
+          grep -q 'colordiffuse="button_focus">colors/white.png' addons/skin.estuary/xml/Includes.xml
+          grep -q '<include condition="Skin.HasSetting(touchmode) + !Window.IsActive(home)">TouchBackButton</include>' addons/skin.estuary/xml/Includes.xml
+          echo "Verifica superata: cornici verdi presenti e pulsante Indietro invariato."
 
       - name: Set Kodi Auto app identity
         run: |
@@ -173,6 +229,33 @@ jobs:
 
           echo "Immagine originale Kodi Auto applicata."
           test -s "$RES/drawable-nodpi/kodiauto_icon.png"
+
+      - name: Set external Kodi Auto crown launcher icon
+        run: |
+          set -euo pipefail
+          MANIFEST="kodi/tools/android/packaging/xbmc/AndroidManifest.xml.in"
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          manifest = Path("kodi/tools/android/packaging/xbmc/AndroidManifest.xml.in")
+          xml = manifest.read_text(encoding="utf-8")
+          app = re.search(r"<application\\b[^>]*>", xml)
+          if not app:
+              raise SystemExit("Tag application non trovato nel manifest Kodi")
+          tag = app.group(0)
+          if re.search(r'android:icon="[^"]+"', tag):
+              updated = re.sub(r'android:icon="[^"]+"', 'android:icon="@drawable/kodiauto_icon"', tag, count=1)
+          else:
+              updated = tag[:-1] + ' android:icon="@drawable/kodiauto_icon">'
+          xml = xml[:app.start()] + updated + xml[app.end():]
+          manifest.write_text(xml, encoding="utf-8")
+          if 'android:icon="@drawable/kodiauto_icon"' not in xml:
+              raise SystemExit("Icona esterna Kodi Auto non impostata")
+          print("Icona launcher impostata sul logo Kodi Auto corona oro/nero.")
+          PY
+          test -s "kodi/build/tools/android/packaging/xbmc/res/drawable-nodpi/kodiauto_icon.png"
+          grep -q 'android:icon="@drawable/kodiauto_icon"' "$MANIFEST"
 
       - name: Restore Kodi Auto logo in original Kodi home logo slot
         working-directory: kodi
@@ -327,6 +410,8 @@ jobs:
             "$SRC/KodiAutoMediaLibraryService.kt" > "$KOTLIN_DIR/KodiAutoMediaLibraryService.kt"
           sed 's/^package it\.kodiauto\.app$/package it.kodiauto.media/' \
             "$SRC/KodiJsonRpcClient.kt" > "$KOTLIN_DIR/KodiJsonRpcClient.kt"
+          sed 's/^package it\\.kodiauto\\.app$/package it.kodiauto.media/' \\
+            "$SRC/KodiRemotePlayer.kt" > "$KOTLIN_DIR/KodiRemotePlayer.kt"
           cp KodiAuto/app/src/main/res/xml/automotive_app_desc.xml \
             "$PKG_DIR/res/xml/automotive_app_desc.xml"
 
@@ -397,6 +482,9 @@ jobs:
 
           test -s "$PKG_DIR/java/it/kodiauto/media/KodiAutoMediaLibraryService.kt"
           test -s "$PKG_DIR/java/it/kodiauto/media/KodiJsonRpcClient.kt"
+          test -s "$PKG_DIR/java/it/kodiauto/media/KodiRemotePlayer.kt"
+          grep -q 'postDelayed(this, 1500)' "$PKG_DIR/java/it/kodiauto/media/KodiAutoMediaLibraryService.kt"
+          grep -q 'KodiRemotePlayer(worker)' "$PKG_DIR/java/it/kodiauto/media/KodiAutoMediaLibraryService.kt"
           grep -q 'androidx.media3.session.MediaLibraryService' "$PKG_DIR/AndroidManifest.xml"
           grep -q 'automotive_app_desc' "$PKG_DIR/AndroidManifest.xml"
           grep -q 'media3-session:1.8.0' "$PKG_DIR/build.gradle"
