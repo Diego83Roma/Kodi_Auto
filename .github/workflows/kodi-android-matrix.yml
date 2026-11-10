@@ -8,6 +8,7 @@ on:
       - fermata-integration
       - fermata-complete-integration
       - kodiauto-modern-ui
+      - diag-no-car-projection
 
 jobs:
   build-kodi:
@@ -99,6 +100,7 @@ jobs:
         run: |
           python3 - <<'PY'
           from pathlib import Path
+          import os
           import re
 
           colors = Path("addons/skin.estuary/colors/defaults.xml")
@@ -506,7 +508,7 @@ jobs:
               '''
               xml = add_before_application_close(xml, media_service)
 
-          if 'android:name=".KodiAutoCarService"' not in xml:
+          if 'android:name=".KodiAutoCarService"' not in xml and os.environ.get("GITHUB_REF_NAME") != "diag-no-car-projection":
               car_service = '''
                   <service
                       android:name=".KodiAutoCarService"
@@ -521,7 +523,7 @@ jobs:
               '''
               xml = add_before_application_close(xml, car_service)
 
-          if 'android:name=".KodiAutoCarService"' not in xml:
+          if os.environ.get("GITHUB_REF_NAME") != "diag-no-car-projection" and 'android:name=".KodiAutoCarService"' not in xml:
               raise SystemExit("KodiAutoCarService non inserito nel manifest generato")
           if 'android:name=".KodiAutoMediaLibraryService"' not in xml:
               raise SystemExit("KodiAutoMediaLibraryService non inserito nel manifest generato")
