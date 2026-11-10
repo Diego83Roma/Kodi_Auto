@@ -94,6 +94,69 @@ jobs:
           grep -q 'FF00FF41' addons/skin.estuary/colors/defaults.xml
           grep -q 'FF000000' addons/skin.estuary/colors/defaults.xml
 
+      - name: Apply modern Matrix borders to Kodi dialogs and panels
+        working-directory: kodi
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+
+          includes = Path("addons/skin.estuary/xml/Includes.xml")
+          data = includes.read_text(encoding="utf-8")
+
+          # Guard the existing Back button hook: this step must not alter it.
+          back_hook = '<include condition="Skin.HasSetting(touchmode) + !Window.IsActive(home)">TouchBackButton</include>'
+          if data.count(back_hook) != 1:
+              raise SystemExit("Protezione: richiamo originale TouchBackButton non trovato una sola volta")
+
+          start = data.index('<include name="DialogBackground">')
+          end_marker = '\n\t</include>\n\t<include name="TopBar">'
+          end = data.index(end_marker, start)
+          section = data[start:end]
+
+          anchor = '<texture colordiffuse="dialog_tint">colors/white.png</texture>\n\t\t\t</control>'
+          if section.count(anchor) != 1:
+              raise SystemExit("Sfondo standard dei dialoghi non trovato in modo univoco")
+
+          # Thin neon-green perimeter, a restrained header separator and a
+          # darker double-edge accent. These are decorative image controls:
+          # all existing Kodi controls, IDs, labels and actions remain intact.
+          frame = '''<texture colordiffuse="dialog_tint">colors/white.png</texture>
+          </control>
+          <control type="image">
+              <left>0</left><top>0</top><right>0</right><height>2</height>
+              <texture colordiffuse="button_focus">colors/white.png</texture>
+          </control>
+          <control type="image">
+              <left>0</left><bottom>0</bottom><right>0</right><height>2</height>
+              <texture colordiffuse="border_alpha">colors/white.png</texture>
+          </control>
+          <control type="image">
+              <left>0</left><top>0</top><bottom>0</bottom><width>2</width>
+              <texture colordiffuse="border_alpha">colors/white.png</texture>
+          </control>
+          <control type="image">
+              <right>0</right><top>0</top><bottom>0</bottom><width>2</width>
+              <texture colordiffuse="border_alpha">colors/white.png</texture>
+          </control>
+          <control type="image">
+              <left>0</left><top>68</top><right>0</right><height>2</height>
+              <texture colordiffuse="button_focus">colors/white.png</texture>
+          </control>'''
+          section = section.replace(anchor, frame, 1)
+          updated = data[:start] + section + data[end:]
+
+          if updated.count(back_hook) != 1:
+              raise SystemExit("Protezione: il richiamo TouchBackButton è cambiato")
+          includes.write_text(updated, encoding="utf-8")
+          print("Cornice Matrix applicata ai dialoghi Estuary; controlli e navigazione originali conservati.")
+          PY
+
+          grep -q 'name="DialogBackground"' addons/skin.estuary/xml/Includes.xml
+          grep -q 'colordiffuse="button_focus">colors/white.png' addons/skin.estuary/xml/Includes.xml
+          grep -q '<include condition="Skin.HasSetting(touchmode) + !Window.IsActive(home)">TouchBackButton</include>' addons/skin.estuary/xml/Includes.xml
+          echo "Verifica superata: cornici verdi presenti e pulsante Indietro invariato."
+
       - name: Set Kodi Auto app identity
         run: |
           sed -i 's/^APP_NAME .*/APP_NAME Kodi/' kodi/version.txt
@@ -112,21 +175,37 @@ jobs:
 
       - name: Apply original Kodi Auto launcher image
         run: |
+          set -euo pipefail
           RES="kodi/tools/android/packaging/xbmc/res"
+          MANIFEST="kodi/tools/android/packaging/xbmc/AndroidManifest.xml.in"
 
-          mkdir -p "$RES/drawable-nodpi"
+          mkdir -p "$RES/drawable-nodpi" "$RES/drawable"
 
-          cp KodiAuto/kodiauto-icon.png \
-            "$RES/drawable-nodpi/kodiauto_icon.png"
+          cp KodiAuto/kodiauto-icon.png "$RES/drawable-nodpi/kodiauto_icon.png"
 
-          cat > "$RES/drawable/ic_launcher_foreground.xml" <<'EOF'
-          <bitmap xmlns:android="http://schemas.android.com/apk/res/android"
-              android:src="@drawable/kodiauto_icon"
-              android:gravity="fill" />
-          EOF
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
 
-          echo "Immagine originale Kodi Auto applicata."
+          manifest = Path("kodi/tools/android/packaging/xbmc/AndroidManifest.xml.in")
+          xml = manifest.read_text(encoding="utf-8")
+          app = re.search(r"<application\\b[^>]*>", xml)
+          if not app:
+              raise SystemExit("Tag application non trovato nel manifest Kodi")
+          tag = app.group(0)
+          if re.search(r'android:icon="[^"]+"', tag):
+              updated = re.sub(r'android:icon="[^"]+"', 'android:icon="@drawable/kodiauto_icon"', tag, count=1)
+          else:
+              updated = tag[:-1] + ' android:icon="@drawable/kodiauto_icon">'
+          xml = xml[:app.start()] + updated + xml[app.end():]
+          manifest.write_text(xml, encoding="utf-8")
+          if 'android:icon="@drawable/kodiauto_icon"' not in xml:
+              raise SystemExit("Icona launcher Kodi Auto non impostata")
+          print("Icona launcher impostata all'immagine corona oro/nero e strada.")
+          PY
+
           test -s "$RES/drawable-nodpi/kodiauto_icon.png"
+          grep -q 'android:icon="@drawable/kodiauto_icon"' "$MANIFEST"
 
       - name: Restore Kodi Auto logo in original Kodi home logo slot
         working-directory: kodi
