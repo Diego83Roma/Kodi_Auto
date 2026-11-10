@@ -119,7 +119,7 @@ class KodiAutoMediaLibraryService : MediaLibraryService() {
         super.onCreate()
         kodiPlayer = KodiRemotePlayer(worker)
         librarySession = MediaLibrarySession.Builder(this, kodiPlayer!!, libraryCallback).build()
-        mainHandler.post(pollKodi)
+        // Test diagnostico: polling automatico Kodi temporaneamente disattivato.
     }
 
     override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaLibrarySession? =
