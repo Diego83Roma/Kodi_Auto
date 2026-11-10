@@ -382,10 +382,10 @@ jobs:
         run: |
           make -j2
 
-      - name: Configure Kodi CMake for Release
+      - name: Configure Kodi CMake
         working-directory: kodi
         run: |
-          make -C tools/depends/target/cmakebuildsys Configuration=Release
+          make -C tools/depends/target/cmakebuildsys
 
       - name: Build Kodi
         working-directory: kodi
