@@ -471,17 +471,6 @@ jobs:
           grep -q '<uses name="projection" />' "$PKG_DIR/res/xml/automotive_app_desc.xml"
           echo "CHECK OK: MediaLibrary + Car Projection/Fermata integrate prima delle compilazioni lunghe."
 
-      - name: Build Kodi dependencies
-        working-directory: kodi/tools/depends
-        run: |
-          make -j2
-
-      - name: Build Kodi
-        working-directory: kodi
-        run: |
-          cd build
-          make -j2
-
       - name: Create Android debug keystore
         run: |
           mkdir -p "$HOME/.android"
@@ -512,6 +501,17 @@ jobs:
             echo "Configurazione Gradle aggiornata: $WRAPPER"
             grep -E '^(distributionUrl|networkTimeout)=' "$WRAPPER"
           done
+
+      - name: Build Kodi dependencies
+        working-directory: kodi/tools/depends
+        run: |
+          make -j2
+
+      - name: Build Kodi
+        working-directory: kodi
+        run: |
+          cd build
+          make -j2
 
       - name: Package Kodi APK
         working-directory: kodi/build
@@ -565,6 +565,18 @@ jobs:
           }
           grep -Fq 'MediaBrowserService' /tmp/kodiauto-manifest.txt || {
             echo "ERRORE: action MediaBrowserService assente dal manifest finale"
+            exit 1
+          }
+          grep -Fq 'MediaSessionService' /tmp/kodiauto-manifest.txt || {
+            echo "ERRORE: action MediaSessionService assente dal manifest finale"
+            exit 1
+          }
+          grep -Fq 'KodiAutoCarService' /tmp/kodiauto-manifest.txt || {
+            echo "ERRORE: servizio Car Projection assente dal manifest finale"
+            exit 1
+          }
+          grep -Fq 'CATEGORY_PROJECTION' /tmp/kodiauto-manifest.txt || {
+            echo "ERRORE: categoria Car Projection assente dal manifest finale"
             exit 1
           }
 
