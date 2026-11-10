@@ -396,8 +396,14 @@ jobs:
             "$SRC/KodiJsonRpcClient.kt" > "$SOURCE_DIR/KodiJsonRpcClient.kt"
           sed 's/^package it\.kodiauto\.app;$/package it.kodiauto.media;/' \
             "$SRC/KodiAutoCarService.java" > "$SOURCE_DIR/KodiAutoCarService.java"
-          sed 's/^package it\.kodiauto\.app;$/package it.kodiauto.media;/' \
+          sed -e 's/^package it\.kodiauto\.app;$/package it.kodiauto.media;/' \
+              -e 's/^  protected void onCreate(/  public void onCreate(/' \
+              -e 's/^  protected void onDestroy(/  public void onDestroy(/' \
             "$SRC/KodiAutoCarActivity.java" > "$SOURCE_DIR/KodiAutoCarActivity.java"
+          grep -q '^  public void onCreate(android.os.Bundle' "$SOURCE_DIR/KodiAutoCarActivity.java" || grep -q '^  public void onCreate(Bundle' "$SOURCE_DIR/KodiAutoCarActivity.java"
+          grep -q '^  public void onDestroy()' "$SOURCE_DIR/KodiAutoCarActivity.java"
+          ! grep -q '^  protected void onCreate(' "$SOURCE_DIR/KodiAutoCarActivity.java"
+          ! grep -q '^  protected void onDestroy(' "$SOURCE_DIR/KodiAutoCarActivity.java"
 
           curl -fL --retry 3 \
             https://raw.githubusercontent.com/AndreyPavlenko/Fermata/65a3c1632b5c3ded8f036c025458f7b77f780f8d/fermata/lib/auto/aauto.aar \
