@@ -5,7 +5,8 @@ on:
   push:
     branches:
       - Kodi-engine
-      - fermata-integration\n      - testD-48-remoteplayer-sync
+      - fermata-integration
+      - testD-48-remoteplayer-sync
 
 jobs:
   build-kodi:
