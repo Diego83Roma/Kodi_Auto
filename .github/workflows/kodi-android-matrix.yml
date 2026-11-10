@@ -189,7 +189,7 @@ jobs:
 
           manifest = Path("kodi/tools/android/packaging/xbmc/AndroidManifest.xml.in")
           xml = manifest.read_text(encoding="utf-8")
-          app = re.search(r"<application\\b[^>]*>", xml)
+          app = re.search(r"<application\b[^>]*>", xml)
           if not app:
               raise SystemExit("Tag application non trovato nel manifest Kodi")
           tag = app.group(0)
