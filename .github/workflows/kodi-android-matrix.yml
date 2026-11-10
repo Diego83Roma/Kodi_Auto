@@ -420,6 +420,7 @@ jobs:
               "implementation files('libs/aauto.aar')",
               "implementation 'androidx.car.app:app:1.7.0'",
               "implementation 'androidx.media3:media3-session:1.8.0'",
+              "implementation 'androidx.media3:media3-exoplayer:1.8.0'",
               "implementation 'com.google.guava:guava:33.3.1-android'",
           ]
           for dependency in dependencies:
