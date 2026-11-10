@@ -431,7 +431,7 @@ jobs:
           if source_marker not in text:
               raise SystemExit("Source set Java Kodi non trovato")
           if "kotlin.srcDirs = ['java']" not in text:
-              text = text.replace(source_marker, source_marker + "\\nkotlin.srcDirs = ['java']", 1)
+              text = text.replace(source_marker, source_marker + "\nkotlin.srcDirs = ['java']", 1)
           gradle.write_text(text, encoding="utf-8")
 
           manifest = module / "AndroidManifest.xml"
