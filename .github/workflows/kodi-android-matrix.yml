@@ -79,10 +79,20 @@ jobs:
           if count != 1:
               raise SystemExit("Blocco UUID Android non trovato: verifica della sorgente Kodi fallita")
           source.write_text(updated, encoding="utf-8")
-          print("Compatibilità crossguid corretta: xg::newGuid() senza parametro JNIEnv.")
+
+          # La crossguid inclusa nelle dipendenze Android non espone più initJni.
+          app = Path("xbmc/platform/android/activity/XBMCApp.cpp")
+          app_data = app.read_text(encoding="utf-8")
+          init_pattern = r'(?m)^\s*// crossguid requires init on android only once on process start\n\s*JNIEnv\* env = xbmc_jnienv\(\);\n\s*xg::initJni\(env\);\n'
+          app_updated, init_count = re.subn(init_pattern, "", app_data, count=1)
+          if init_count != 1:
+              raise SystemExit("Blocco xg::initJni in XBMCApp.cpp non trovato: patch interrotta")
+          app.write_text(app_updated, encoding="utf-8")
+          print("Compatibilità crossguid corretta: rimossi newGuid(env) e initJni non supportati.")
           PY
           grep -n -A5 -B2 'std::string StringUtils::CreateUUID' xbmc/utils/StringUtils.cpp
           ! grep -Fq 'xg::newGuid(env)' xbmc/utils/StringUtils.cpp
+          ! grep -Fq 'xg::initJni' xbmc/platform/android/activity/XBMCApp.cpp
 
       - name: Apply Kodi Auto Matrix visual theme
         working-directory: kodi
