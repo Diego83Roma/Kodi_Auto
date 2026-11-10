@@ -5,6 +5,7 @@ on:
   push:
     branches:
       - Kodi-engine
+      - testA-old-matrix-launcher
 
 jobs:
   build-kodi:
