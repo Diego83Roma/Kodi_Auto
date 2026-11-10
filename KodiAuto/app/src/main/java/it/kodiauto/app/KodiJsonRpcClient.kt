@@ -51,71 +51,6 @@ internal object KodiJsonRpcClient {
         call("Player.Open", JSONObject().put("item", JSONObject().put("movieid", movieId)))
     }
 
-    fun openEpisode(episodeId: Int) {
-        call("Player.Open", JSONObject().put("item", JSONObject().put("episodeid", episodeId)))
-    }
-
-    fun openChannel(channelId: Int) {
-        call("Player.Open", JSONObject().put("item", JSONObject().put("channelid", channelId)))
-    }
-
-    fun setPlaying(playing: Boolean, playerId: Int) {
-        call("Player.PlayPause", JSONObject().put("playerid", playerId).put("play", playing))
-    }
-
-    fun stop(playerId: Int) {
-        call("Player.Stop", JSONObject().put("playerid", playerId))
-    }
-
-    fun goTo(direction: String, playerId: Int) {
-        call("Player.GoTo", JSONObject().put("playerid", playerId).put("to", direction))
-    }
-
-    fun seek(positionMs: Long, playerId: Int) {
-        val totalMs = positionMs.coerceAtLeast(0)
-        val time = JSONObject()
-            .put("hours", totalMs / 3_600_000)
-            .put("minutes", (totalMs % 3_600_000) / 60_000)
-            .put("seconds", (totalMs % 60_000) / 1_000)
-            .put("milliseconds", totalMs % 1_000)
-        call("Player.Seek", JSONObject().put("playerid", playerId).put("value", JSONObject().put("time", time)))
-    }
-
-    fun playbackState(): JSONObject {
-        val active = call("Player.GetActivePlayers").optJSONArray("players") ?: JSONArray()
-        if (active.length() == 0) return JSONObject().put("active", false)
-        val playerId = active.getJSONObject(0).optInt("playerid", 1)
-        val properties = call(
-            "Player.GetProperties",
-            JSONObject()
-                .put("playerid", playerId)
-                .put("properties", JSONArray()
-                    .put("time")
-                    .put("totaltime")
-                    .put("speed")
-                    .put("percentage")
-                    .put("canseek"))
-        )
-        val itemResult = call(
-            "Player.GetItem",
-            JSONObject()
-                .put("playerid", playerId)
-                .put("properties", JSONArray()
-                    .put("title")
-                    .put("artist")
-                    .put("album")
-                    .put("year")
-                    .put("thumbnail")
-                    .put("type")
-                    .put("id"))
-        )
-        return JSONObject()
-            .put("active", true)
-            .put("playerid", playerId)
-            .put("properties", properties)
-            .put("item", itemResult.optJSONObject("item") ?: JSONObject())
-    }
-
     fun albums(): JSONArray {
         val params = JSONObject()
             .put("properties", JSONArray().put("title").put("artist").put("year").put("thumbnail"))
@@ -136,51 +71,6 @@ internal object KodiJsonRpcClient {
             .put("properties", JSONArray().put("title").put("year").put("thumbnail").put("file").put("runtime"))
             .put("limits", JSONObject().put("start", 0).put("end", 200))
         return call("VideoLibrary.GetMovies", params).optJSONArray("movies") ?: JSONArray()
-    }
-
-    fun playlists(): JSONArray =
-        call("Playlist.GetPlaylists").optJSONArray("playlists") ?: JSONArray()
-
-    fun playlistItems(playlistId: Int): JSONArray {
-        val params = JSONObject()
-            .put("playlistid", playlistId)
-            .put("properties", JSONArray().put("title").put("artist").put("album").put("thumbnail").put("type").put("id"))
-        return call("Playlist.GetItems", params).optJSONArray("items") ?: JSONArray()
-    }
-
-    fun tvShows(): JSONArray {
-        val params = JSONObject()
-            .put("properties", JSONArray().put("title").put("year").put("thumbnail"))
-            .put("limits", JSONObject().put("start", 0).put("end", 200))
-        return call("VideoLibrary.GetTVShows", params).optJSONArray("tvshows") ?: JSONArray()
-    }
-
-    fun episodes(tvShowId: Int): JSONArray {
-        val params = JSONObject()
-            .put("tvshowid", tvShowId)
-            .put("properties", JSONArray().put("title").put("season").put("episode").put("showtitle").put("thumbnail").put("runtime"))
-            .put("limits", JSONObject().put("start", 0).put("end", 300))
-        return call("VideoLibrary.GetEpisodes", params).optJSONArray("episodes") ?: JSONArray()
-    }
-
-    fun channels(): JSONArray = pvrChannels("tv")
-
-    fun radioChannels(): JSONArray = pvrChannels("radio")
-
-    private fun pvrChannels(channelType: String): JSONArray {
-        val groups = call(
-            "PVR.GetChannelGroups",
-            JSONObject().put("channeltype", channelType)
-                .put("limits", JSONObject().put("start", 0).put("end", 20))
-        ).optJSONArray("channelgroups") ?: JSONArray()
-        if (groups.length() == 0) return JSONArray()
-        val groupId = groups.getJSONObject(0).optInt("channelgroupid", -1)
-        if (groupId < 0) return JSONArray()
-        val params = JSONObject()
-            .put("channelgroupid", groupId)
-            .put("properties", JSONArray().put("channel").put("channeltype").put("thumbnail").put("isrecording"))
-            .put("limits", JSONObject().put("start", 0).put("end", 200))
-        return call("PVR.GetChannels", params).optJSONArray("channels") ?: JSONArray()
     }
 
     private fun readJsonObject(input: java.io.InputStream): String {
