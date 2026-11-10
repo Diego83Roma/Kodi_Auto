@@ -9,6 +9,7 @@ on:
       - fermata-complete-integration
       - kodiauto-modern-ui
       - diag2-no-car-projection
+      - testC-69-exoplayer-only
 
 jobs:
   build-kodi:
@@ -225,89 +226,40 @@ jobs:
           manifest = Path("kodi/tools/android/packaging/xbmc/AndroidManifest.xml.in")
           xml = manifest.read_text(encoding="utf-8")
 
-          # Permissions and declarations are written to Kodi's SOURCE template
-          # before Kodi generates the packaged AndroidManifest.xml.
-          permissions = [
-              "android.permission.INTERNET",
-              "android.permission.FOREGROUND_SERVICE",
-              "android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK",
-              "androidx.car.app.ACCESS_SURFACE",
-              "androidx.car.app.NAVIGATION_TEMPLATES",
-              "android.permission.WAKE_LOCK",
-              "android.permission.DISABLE_KEYGUARD",
-          ]
-          for permission in permissions:
-              if f'android:name="{permission}"' not in xml:
-                  xml, count = re.subn(
-                      r'(<manifest\b[^>]*>)',
-                      r'\1\n    <uses-permission android:name="' + permission + '" />',
-                      xml,
-                      count=1
-                  )
-                  if count != 1:
-                      raise SystemExit(f"Impossibile aggiungere permesso {permission}")
-
           if 'com.google.android.gms.car.application' not in xml:
               xml, count = re.subn(
                   r'(<application\b[^>]*>)',
-                  r'\1\n        <meta-data android:name="com.google.android.gms.car.application" android:resource="@xml/automotive_app_desc" />',
+                  r'\1\n<meta-data android:name="com.google.android.gms.car.application" android:resource="@xml/automotive_app_desc" />',
                   xml,
                   count=1
               )
               if count != 1:
                   raise SystemExit("Impossibile inserire metadata Android Auto nel template")
 
-          services = [
-              """
-              <service
-                  android:name=".KodiAutoMediaLibraryService"
-                  android:label="Kodi Auto"
-                  android:exported="true"
-                  android:foregroundServiceType="mediaPlayback">
-                  <intent-filter>
-                      <action android:name="androidx.media3.session.MediaLibraryService" />
-                      <action android:name="androidx.media3.session.MediaSessionService" />
-                      <action android:name="android.media.browse.MediaBrowserService" />
-                  </intent-filter>
-              </service>
-              """,
-              """
-              <service
-                  android:name=".KodiAutoCarService"
-                  android:exported="true"
-                  android:label="Kodi Auto">
-                  <intent-filter>
-                      <action android:name="android.intent.action.MAIN" />
-                      <category android:name="com.google.android.gms.car.category.CATEGORY_PROJECTION" />
-                      <category android:name="com.google.android.gms.car.category.CATEGORY_PROJECTION_OEM" />
-                  </intent-filter>
-              </service>
-              """,
-          ]
-          for service in services:
-              match = re.search(r'android:name="([^"]+)"', service)
-              component = match.group(1)
-              if f'android:name="{component}"' not in xml:
-                  if xml.count("</application>") != 1:
-                      raise SystemExit("Chiusura application assente o non univoca nel template Kodi")
-                  xml = xml.replace("</application>", service + "\n</application>", 1)
+          if 'android:name=".KodiAutoMediaLibraryService"' not in xml:
+              service = """
+          <service
+              android:name=".KodiAutoMediaLibraryService"
+              android:label="Kodi Auto"
+              android:exported="true"
+              android:foregroundServiceType="mediaPlayback">
+              <intent-filter>
+                  <action android:name="androidx.media3.session.MediaLibraryService" />
+                  <action android:name="androidx.media3.session.MediaSessionService" />
+                  <action android:name="android.media.browse.MediaBrowserService" />
+              </intent-filter>
+          </service>
+          """
+              if "</application>" not in xml:
+                  raise SystemExit("Chiusura application non trovata nel template Kodi")
+              xml = xml.replace("</application>", service + "\n</application>", 1)
 
           manifest.write_text(xml, encoding="utf-8")
-
-          required = [
-              'com.google.android.gms.car.application',
-              'android:name=".KodiAutoMediaLibraryService"',
-              'android:name=".KodiAutoCarService"',
-              'androidx.media3.session.MediaLibraryService',
-              'com.google.android.gms.car.category.CATEGORY_PROJECTION',
-          ]
-          for value in required:
-              if value not in xml:
-                  raise SystemExit(f"Template manifest incompleto: {value}")
-          print("Template Kodi aggiornato: permessi, metadata e i due servizi Android Auto presenti.")
+          assert 'com.google.android.gms.car.application' in xml
+          assert 'android:name=".KodiAutoMediaLibraryService"' in xml
+          assert 'androidx.media3.session.MediaLibraryService' in xml
+          print("Template sorgente Kodi aggiornato: metadati e servizio Android Auto presenti.")
           PY
-          grep -q 'android:name=".KodiAutoCarService"' kodi/tools/android/packaging/xbmc/AndroidManifest.xml.in
-          grep -q 'android:name=".KodiAutoMediaLibraryService"' kodi/tools/android/packaging/xbmc/AndroidManifest.xml.in
 
       - name: Apply original Kodi Auto launcher image
         run: |
@@ -415,45 +367,26 @@ jobs:
             "$SRC/KodiAutoMediaLibraryService.kt" > "$KOTLIN_DIR/KodiAutoMediaLibraryService.kt"
           sed 's/^package it\.kodiauto\.app$/package it.kodiauto.media/' \
             "$SRC/KodiJsonRpcClient.kt" > "$KOTLIN_DIR/KodiJsonRpcClient.kt"
-          sed 's/^package it\.kodiauto\.app$/package it.kodiauto.media/' \
-            "$SRC/KodiRemotePlayer.kt" > "$KOTLIN_DIR/KodiRemotePlayer.kt"
-          sed 's/^package it\.kodiauto\.app;$/package it.kodiauto.media;/' \
-            "$SRC/KodiAutoCarService.java" > "$KOTLIN_DIR/KodiAutoCarService.java"
-          sed 's/^package it\.kodiauto\.app;$/package it.kodiauto.media;/' \
-            "$SRC/KodiAutoCarActivity.java" > "$KOTLIN_DIR/KodiAutoCarActivity.java"
-          mkdir -p "$PKG_DIR/libs"
-          curl -fL --retry 3 \
-            https://raw.githubusercontent.com/AndreyPavlenko/Fermata/65a3c1632b5c3ded8f036c025458f7b77f780f8d/fermata/lib/auto/aauto.aar \
-            -o "$PKG_DIR/libs/aauto.aar"
-          test -s "$PKG_DIR/libs/aauto.aar"
           cp KodiAuto/app/src/main/res/xml/automotive_app_desc.xml \
             "$PKG_DIR/res/xml/automotive_app_desc.xml"
 
           python3 - <<'PY'
           from pathlib import Path
-          import os
           import re
 
           module = Path("kodi/build/tools/android/packaging/xbmc")
           gradle = module / "build.gradle"
           text = gradle.read_text(encoding="utf-8")
 
-          if "dependencies {" not in text:
-              raise SystemExit("Blocco dependencies non trovato nel modulo Kodi")
-
-          dependencies = [
-              "implementation files('libs/aauto.aar')",
-              "implementation 'androidx.car.app:app:1.7.0'",
-              "implementation 'androidx.media3:media3-session:1.8.0'",
-              "implementation 'com.google.guava:guava:33.3.1-android'",
-          ]
-          for dependency in dependencies:
-              if dependency not in text:
-                  text = text.replace(
-                      "dependencies {",
-                      "dependencies {\n    " + dependency,
-                      1
-                  )
+          if "androidx.media3:media3-session:1.8.0" not in text:
+              text = text.replace(
+                  "dependencies {",
+                  """dependencies {
+              implementation 'androidx.media3:media3-exoplayer:1.8.0'
+              implementation 'androidx.media3:media3-session:1.8.0'
+              implementation 'com.google.guava:guava:33.3.1-android'""",
+                  1
+              )
 
           # AGP 9.2 built-in Kotlin compiles .kt files from the
           # existing main Java source directory; no separate Kotlin
@@ -467,10 +400,6 @@ jobs:
               '    <uses-permission android:name="android.permission.INTERNET" />',
               '    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />',
               '    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />',
-              '    <uses-permission android:name="androidx.car.app.ACCESS_SURFACE" />',
-              '    <uses-permission android:name="androidx.car.app.NAVIGATION_TEMPLATES" />',
-              '    <uses-permission android:name="android.permission.WAKE_LOCK" />',
-              '    <uses-permission android:name="android.permission.DISABLE_KEYGUARD" />',
           ]
           for permission in permissions:
               name = re.search(r'android:name="([^"]+)"', permission).group(1)
@@ -487,14 +416,8 @@ jobs:
               if count != 1:
                   raise SystemExit("Tag application non trovato nel manifest Kodi")
 
-          def add_before_application_close(document, fragment):
-              if document.count("</application>") != 1:
-                  raise SystemExit("Chiusura application assente o non univoca nel manifest Kodi")
-              head, tail = document.rsplit("</application>", 1)
-              return head + fragment + "\n    </application>" + tail
-
-          if 'android:name=".KodiAutoMediaLibraryService"' not in xml:
-              media_service = '''
+          if 'androidx.media3.session.MediaLibraryService' not in xml:
+              service = '''
                   <service
                       android:name=".KodiAutoMediaLibraryService"
                       android:label="Kodi Auto"
@@ -507,52 +430,17 @@ jobs:
                       </intent-filter>
                   </service>
               '''
-              xml = add_before_application_close(xml, media_service)
+              xml = xml.replace("    </application>", service + "\n    </application>", 1)
 
-          if 'android:name=".KodiAutoCarService"' not in xml and os.environ.get("GITHUB_REF_NAME") != "diag2-no-car-projection":
-              car_service = '''
-                  <service
-                      android:name=".KodiAutoCarService"
-                      android:exported="true"
-                      android:label="Kodi Auto">
-                      <intent-filter>
-                          <action android:name="android.intent.action.MAIN" />
-                          <category android:name="com.google.android.gms.car.category.CATEGORY_PROJECTION" />
-                          <category android:name="com.google.android.gms.car.category.CATEGORY_PROJECTION_OEM" />
-                      </intent-filter>
-                  </service>
-              '''
-              xml = add_before_application_close(xml, car_service)
-
-          if os.environ.get("GITHUB_REF_NAME") != "diag2-no-car-projection" and 'android:name=".KodiAutoCarService"' not in xml:
-              raise SystemExit("KodiAutoCarService non inserito nel manifest generato")
-          if 'android:name=".KodiAutoMediaLibraryService"' not in xml:
-              raise SystemExit("KodiAutoMediaLibraryService non inserito nel manifest generato")
           manifest.write_text(xml, encoding="utf-8")
           PY
 
-          check_file() {
-            if [ ! -s "$1" ]; then echo "CHECK FAILED: file mancante o vuoto: $1"; exit 1; fi
-            echo "CHECK OK: $1"
-          }
-          check_text() {
-            if ! grep -Fq "$1" "$2"; then echo "CHECK FAILED: testo '$1' assente in $2"; exit 1; fi
-            echo "CHECK OK: '$1' in $2"
-          }
-          check_file "$PKG_DIR/java/it/kodiauto/media/KodiAutoMediaLibraryService.kt"
-          check_file "$PKG_DIR/java/it/kodiauto/media/KodiJsonRpcClient.kt"
-          check_file "$PKG_DIR/java/it/kodiauto/media/KodiRemotePlayer.kt"
-          check_file "$PKG_DIR/java/it/kodiauto/media/KodiAutoCarService.java"
-          check_file "$PKG_DIR/java/it/kodiauto/media/KodiAutoCarActivity.java"
-          check_file "$PKG_DIR/libs/aauto.aar"
-          check_text 'androidx.media3.session.MediaLibraryService' "$PKG_DIR/AndroidManifest.xml"
-          check_text 'KodiAutoCarService' "$PKG_DIR/AndroidManifest.xml"
-          check_text 'CATEGORY_PROJECTION' "$PKG_DIR/AndroidManifest.xml"
-          check_text 'automotive_app_desc' "$PKG_DIR/AndroidManifest.xml"
-          check_text 'media3-session:1.8.0' "$PKG_DIR/build.gradle"
-          check_text 'aauto.aar' "$PKG_DIR/build.gradle"
-          check_text '<uses name="projection" />' "$PKG_DIR/res/xml/automotive_app_desc.xml"
-          check_file "$PKG_DIR/res/xml/automotive_app_desc.xml"
+          test -s "$PKG_DIR/java/it/kodiauto/media/KodiAutoMediaLibraryService.kt"
+          test -s "$PKG_DIR/java/it/kodiauto/media/KodiJsonRpcClient.kt"
+          grep -q 'androidx.media3.session.MediaLibraryService' "$PKG_DIR/AndroidManifest.xml"
+          grep -q 'automotive_app_desc' "$PKG_DIR/AndroidManifest.xml"
+          grep -q 'media3-session:1.8.0' "$PKG_DIR/build.gradle"
+          test -s "$PKG_DIR/res/xml/automotive_app_desc.xml"
           echo "Integrazione Android Auto inserita nel modulo APK Kodi unico."
 
       - name: Restore persistent Kodi Auto test-signing key
@@ -631,7 +519,7 @@ jobs:
           "$AAPT" dump xmltree "$APK" AndroidManifest.xml > /tmp/kodiauto-manifest.txt
 
           echo "Elementi Android Auto rilevati nel manifest:"
-          grep -E 'com.google.android.gms.car.application|KodiAutoMediaLibraryService|KodiAutoCarService|CATEGORY_PROJECTION|MediaLibraryService|MediaSessionService|MediaBrowserService' /tmp/kodiauto-manifest.txt || true
+          grep -E 'com.google.android.gms.car.application|KodiAutoMediaLibraryService|MediaLibraryService|MediaSessionService|MediaBrowserService' /tmp/kodiauto-manifest.txt || true
 
           grep -Fq 'com.google.android.gms.car.application' /tmp/kodiauto-manifest.txt || {
             echo "ERRORE: metadata Android Auto assente dal manifest finale"
@@ -650,16 +538,12 @@ jobs:
             exit 1
           }
 
-          grep -Fq 'KodiAutoCarService' /tmp/kodiauto-manifest.txt || {
-            echo "ERRORE: servizio Projection Kodi Auto assente dal manifest finale"
+          if grep -Eq 'KodiAutoCarService|CATEGORY_PROJECTION' /tmp/kodiauto-manifest.txt; then
+            echo "ERRORE: trovata una dichiarazione Car Projection che doveva essere rimossa"
             exit 1
-          }
-          grep -Fq 'CATEGORY_PROJECTION' /tmp/kodiauto-manifest.txt || {
-            echo "ERRORE: categoria Projection assente dal manifest finale"
-            exit 1
-          }
+          fi
 
-          echo "OK: manifest finale contiene Media Browser e Projection service."
+          echo "OK: manifest finale contiene il servizio Media Browser e nessun servizio Car Projection."
 
       - name: Upload Kodi APK
         uses: actions/upload-artifact@v4
