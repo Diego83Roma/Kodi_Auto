@@ -8,6 +8,7 @@ on:
       - fermata-integration
       - fermata-complete-integration
       - kodiauto-modern-ui
+      - diag2-no-kodi-polling
 
 jobs:
   build-kodi:
