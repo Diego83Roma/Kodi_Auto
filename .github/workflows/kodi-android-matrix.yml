@@ -71,6 +71,7 @@ jobs:
               "dialog_tint": "FF080D0A",
               "dialog_header_tint": "FF064D27",
               "button_focus": "FF00FF41",
+              "border_alpha": "9900FF41",
               "button_alt_focus": "9900FF41",
               "selected": "FF00FF41",
               "blue": "FF00E83A",
