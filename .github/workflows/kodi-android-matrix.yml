@@ -529,7 +529,7 @@ jobs:
               "Fermata AAR dependency": "aauto.aar" in gradle,
               "Car App dependency": "androidx.car.app:app:1.7.0" in gradle,
               "projection app descriptor": bool(re.search(
-                  r'<uses\\s+name=["\\']projection["\\']\\s*/?>', desc
+                  r"""<uses\s+name=["']projection["']\s*/?>""", desc
               )),
           }
 
