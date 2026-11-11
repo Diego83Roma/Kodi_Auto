@@ -23,6 +23,7 @@ import android.content.ComponentName;
 /** Car-safe Kodi Auto control surface using Fermata's CarActivity integration. */
 public final class KodiAutoCarActivity extends CarActivity {
     private MediaController controller;
+    private static volatile MediaController activeCarController;
     private ListenableFuture<MediaController> controllerFuture;
     private TextView title;
     private TextView subtitle;
@@ -129,6 +130,7 @@ public final class KodiAutoCarActivity extends CarActivity {
         controllerFuture.addListener(() -> {
             try {
                 controller = controllerFuture.get();
+                activeCarController = controller;
                 controller.addListener(listener);
                 render();
             } catch (Exception error) {
@@ -147,11 +149,20 @@ public final class KodiAutoCarActivity extends CarActivity {
         state.setText(controller.isPlaying() ? "IN RIPRODUZIONE" : "IN PAUSA");
     }
 
+    /** Called by CarActivityService when Android Auto ends the projection session. */
+    static void onCarServiceDestroyed() {
+        MediaController active = activeCarController;
+        if (active != null && active.isPlaying()) {
+            active.pause();
+        }
+    }
+
     @Override
     protected void onDestroy() {
         if (controller != null) {
             controller.removeListener(listener);
             controller.release();
+            if (activeCarController == controller) activeCarController = null;
             controller = null;
         }
         if (controllerFuture != null && !controllerFuture.isDone()) {
