@@ -36,7 +36,7 @@ jobs:
           sudo apt-get install -y \
             autoconf bison build-essential curl flex gawk gperf git \
             lib32stdc++6 lib32z1 lib32z1-dev libcurl4-openssl-dev \
-            unzip zip zlib1g-dev
+            unzip zip zlib1g-dev python3-pil
 
       - name: Install Android SDK and NDK
         run: |
@@ -617,6 +617,37 @@ jobs:
         working-directory: kodi/build
         run: |
           make apk
+
+      - name: Verify Kodi Auto launcher image inside final APK
+        run: |
+          set -euo pipefail
+          APK="kodi/kodiapp-arm64-v8a-debug.apk"
+          test -s "$APK"
+          python3 - <<'PY'
+          from pathlib import Path
+          from zipfile import ZipFile
+          from io import BytesIO
+          from PIL import Image, ImageChops
+
+          logo_path = Path("KodiAuto/kodiauto-icon.png")
+          with Image.open(logo_path) as image:
+              expected = image.convert("RGBA")
+          with ZipFile("kodi/kodiapp-arm64-v8a-debug.apk") as apk:
+              names = apk.namelist()
+              candidates = [n for n in names if "mipmap-nodpi" in n and n.endswith("/kodiauto_icon.png")]
+              if not candidates:
+                  raise SystemExit("ERRORE: risorsa mipmap-nodpi/kodiauto_icon.png assente dall'APK")
+              matched = False
+              for name in candidates:
+                  with Image.open(BytesIO(apk.read(name))) as image:
+                      actual = image.convert("RGBA")
+                      if actual.size == expected.size and ImageChops.difference(expected, actual).getbbox() is None:
+                          print(f"OK: icona Kodi Auto identica all'originale nell'APK: {name}")
+                          matched = True
+                          break
+              if not matched:
+                  raise SystemExit("ERRORE: immagine launcher nell'APK diversa dal logo Kodi Auto")
+          PY
 
       - name: Verify Kodi Auto package ID
         run: |
