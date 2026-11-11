@@ -572,40 +572,39 @@ jobs:
           PY
 
 
-      - name: Apply original Kodi Auto launcher image
+      - name: Replace Kodi Auto launcher assets in Kodi source media
         run: |
           set -euo pipefail
-          RES="kodi/build/tools/android/packaging/xbmc/res"
           LOGO="KodiAuto/kodiauto-icon.png"
+          MEDIA="kodi/tools/android/packaging/media"
 
           test -s "$LOGO"
-          mkdir -p "$RES/drawable-nodpi" "$RES/drawable" \
-            "$RES/mipmap-nodpi" "$RES/mipmap-anydpi-v26"
+          test -s "$MEDIA/mipmap-anydpi-v26/ic_launcher.xml"
 
-          # Keep the source image and make it the actual manifest launcher resource.
-          cp "$LOGO" "$RES/drawable-nodpi/kodiauto_icon.png"
-          cp "$LOGO" "$RES/mipmap-nodpi/ic_launcher.png"
+          # Kodi's Makefile target 'res' recopies media/mipmap-* into xbmc/res.
+          # Therefore the source media, not only the generated build/res, must be replaced.
+          mkdir -p "$MEDIA/mipmap-nodpi" "$MEDIA/mipmap-anydpi-v26"
+          cp "$LOGO" "$MEDIA/mipmap-nodpi/kodiauto_icon.png"
+          for density in ldpi mdpi hdpi xhdpi xxhdpi xxxhdpi; do
+            mkdir -p "$MEDIA/mipmap-$density"
+            cp "$LOGO" "$MEDIA/mipmap-$density/ic_launcher.png"
+          done
 
-          cat > "$RES/drawable/ic_launcher_foreground.xml" <<'EOF'
-          <bitmap xmlns:android="http://schemas.android.com/apk/res/android"
-              android:src="@drawable/kodiauto_icon"
-              android:gravity="fill" />
-          EOF
-
-          # Android 8+ uses the adaptive icon; older Android versions use
-          # mipmap-nodpi/ic_launcher.png. The manifest already points to @mipmap/ic_launcher.
-          cat > "$RES/mipmap-anydpi-v26/ic_launcher.xml" <<'EOF'
+          cat > "$MEDIA/mipmap-anydpi-v26/ic_launcher.xml" <<'EOF'
+          <?xml version="1.0" encoding="utf-8"?>
           <adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
               <background android:drawable="@android:color/black" />
-              <foreground android:drawable="@drawable/ic_launcher_foreground" />
+              <foreground android:drawable="@mipmap/kodiauto_icon" />
           </adaptive-icon>
           EOF
 
-          test -s "$RES/drawable-nodpi/kodiauto_icon.png"
-          test -s "$RES/mipmap-nodpi/ic_launcher.png"
-          grep -q '@drawable/ic_launcher_foreground' "$RES/mipmap-anydpi-v26/ic_launcher.xml"
+          grep -q '@mipmap/kodiauto_icon' "$MEDIA/mipmap-anydpi-v26/ic_launcher.xml"
+          for density in ldpi mdpi hdpi xhdpi xxhdpi xxxhdpi; do
+            cmp -s "$LOGO" "$MEDIA/mipmap-$density/ic_launcher.png"
+          done
+          cmp -s "$LOGO" "$MEDIA/mipmap-nodpi/kodiauto_icon.png"
           grep -q 'android:icon="@mipmap/ic_launcher"' kodi/tools/android/packaging/xbmc/AndroidManifest.xml.in
-          echo "Logo Kodi Auto collegato alla vera risorsa launcher @mipmap/ic_launcher."
+          echo "OK: sorgenti mipmap Kodi sostituiti prima della generazione delle risorse Gradle."
 
 
       - name: Build Kodi
@@ -652,14 +651,41 @@ jobs:
           echo "Elementi Android Auto rilevati nel manifest:"
           grep -E 'com.google.android.gms.car.application|KodiAutoMediaLibraryService|MediaLibraryService|MediaSessionService|MediaBrowserService' /tmp/kodiauto-manifest.txt || true
 
-          grep -Fq 'androidx.car.app.minCarApiLevel' /tmp/kodiauto-manifest.txt || {
-            echo "ERRORE: metadata androidx.car.app.minCarApiLevel assente dal manifest finale"
-            exit 1
-          }
-          grep -Fq 'android:value(0x01010024)=0x00000005' /tmp/kodiauto-manifest.txt || {
-            echo "ERRORE: valore minCarApiLevel=5 assente dal manifest finale"
-            exit 1
-          }
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          lines = Path("/tmp/kodiauto-manifest.txt").read_text(encoding="utf-8").splitlines()
+          blocks = []
+          current = []
+          for line in lines:
+              if re.match(r"\\s*E:", line):
+                  if current:
+                      blocks.append(current)
+                  current = [line]
+              elif current:
+                  current.append(line)
+          if current:
+              blocks.append(current)
+
+          found = False
+          for block in blocks:
+              joined = "\\n".join(block)
+              if "androidx.car.app.minCarApiLevel" not in joined:
+                  continue
+              value_lines = [line for line in block if "android:value" in line]
+              print("Blocco minCarApiLevel trovato:")
+              print(joined)
+              # aapt versions format typed integer metadata differently:
+              # e.g. '=0x00000005' or '=(type 0x10)0x5'.
+              if any(re.search(r"(?:0x0*5\\b|(?<![\\w])5\\b)", line) for line in value_lines):
+                  found = True
+                  break
+
+          if not found:
+              raise SystemExit("ERRORE: minCarApiLevel non risulta un intero pari a 5 nel blocco metadata del manifest finale")
+          print("OK: minCarApiLevel=5 verificato nel blocco metadata.")
+          PY
           grep -Fq 'com.google.android.gms.car.application' /tmp/kodiauto-manifest.txt || {
             echo "ERRORE: metadata Android Auto assente dal manifest finale"
             exit 1
@@ -706,9 +732,10 @@ jobs:
 
           echo "OK: manifest finale contiene metadati Android Auto e servizio media esportato."
 
-      - name: Upload Kodi APK
+      - name: Upload Kodi APK (also when a final verification fails)
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: Kodi-Android-ARM64
           path: kodi/kodiapp-arm64-v8a-debug.apk
-          if-no-files-found: error
+          if-no-files-found: warn
