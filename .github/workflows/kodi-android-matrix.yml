@@ -10,6 +10,8 @@ on:
       - kodiauto-logo-fix-98
       - kodiauto-logo-97
       - kodiauto-carapi-99
+      - kodiauto-caractivity-resume-test
+      - kodiauto-107-108-109-combined
 
 jobs:
   build-kodi:
