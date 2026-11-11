@@ -137,15 +137,15 @@ jobs:
           # Match Fermata Auto: declare the minimum supported Car App API level.
           if 'androidx.car.app.minCarApiLevel' not in xml:
               xml, count = re.subn(
-                  r'(<application\\b[^>]*>)',
-                  r'\\1\\n<meta-data android:name="androidx.car.app.minCarApiLevel" android:value="5" />',
+                  r'(<application\b[^>]*>)',
+                  r'\1\n<meta-data android:name="androidx.car.app.minCarApiLevel" android:value="5" />',
                   xml,
                   count=1
               )
               if count != 1:
                   raise SystemExit("Impossibile inserire minCarApiLevel nel template Kodi")
           if not re.search(
-              r'<meta-data[^>]+android:name="androidx\\.car\\.app\\.minCarApiLevel"[^>]+android:value="5"',
+              r'<meta-data[^>]+android:name="androidx\.car\.app\.minCarApiLevel"[^>]+android:value="5"',
               xml
           ):
               raise SystemExit("minCarApiLevel=5 non presente nel template Kodi")
@@ -466,8 +466,8 @@ jobs:
 
           if 'androidx.car.app.minCarApiLevel' not in xml:
               xml, count = re.subn(
-                  r'(<application\\b[\\s\\S]*?>)',
-                  r'\\1\\n        <meta-data android:name="androidx.car.app.minCarApiLevel" android:value="5" />',
+                  r'(<application\b[\s\S]*?>)',
+                  r'\1\n        <meta-data android:name="androidx.car.app.minCarApiLevel" android:value="5" />',
                   xml,
                   count=1
               )
@@ -542,7 +542,7 @@ jobs:
               "KodiAutoCarService manifest": "KodiAutoCarService" in manifest,
               "Car Projection category": "CATEGORY_PROJECTION" in manifest,
               "Car App minimum API metadata": bool(re.search(
-                  r'androidx\\.car\\.app\\.minCarApiLevel.{0,160}android:value="5"',
+                  r'androidx\.car\.app\.minCarApiLevel.{0,160}android:value="5"',
                   manifest
               )),
               "Fermata AAR dependency": "aauto.aar" in gradle,
