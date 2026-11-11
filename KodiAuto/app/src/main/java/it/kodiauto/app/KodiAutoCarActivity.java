@@ -122,6 +122,18 @@ public final class KodiAutoCarActivity extends CarActivity {
         connectMediaSession();
     }
 
+    @Override
+    public void onResume() {
+        super.onResume();
+        // Fermata's MainCarActivity refreshes its media-service connection on resume.
+        // Kodi uses Media3's MediaController, so retry only if no controller exists
+        // and the previous asynchronous connection is no longer pending.
+        if (controller == null && (controllerFuture == null || controllerFuture.isDone())) {
+            if (state != null) state.setText("Ripristino collegamento multimediale…");
+            connectMediaSession();
+        }
+    }
+
     private void connectMediaSession() {
         SessionToken token = new SessionToken(
                 this, new ComponentName(this, KodiAutoMediaLibraryService.class));
