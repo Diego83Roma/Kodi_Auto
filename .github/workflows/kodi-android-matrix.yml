@@ -7,6 +7,7 @@ on:
       - Kodi-engine
       - fermata-integration
       - testF-48-base-carprojection-fermata
+      - kodiauto-carservice-lifecycle-logo-101
 
 jobs:
   build-kodi:
@@ -193,23 +194,96 @@ jobs:
           print("Template sorgente Kodi aggiornato: metadati e servizio Android Auto presenti.")
           PY
 
-      - name: Apply original Kodi Auto launcher image
+      - name: Replace Kodi launcher icon in the actual mipmap resources
         run: |
-          RES="kodi/build/tools/android/packaging/xbmc/res"
+          set -euo pipefail
+          LOGO="$GITHUB_WORKSPACE/KodiAuto/kodiauto-icon.png"
+          SOURCE_MEDIA="kodi/tools/android/packaging/media"
+          SOURCE_RES="kodi/tools/android/packaging/xbmc/res"
+          BUILD_RES="kodi/build/tools/android/packaging/xbmc/res"
 
-          mkdir -p "$RES/drawable-nodpi" "$RES/drawable"
+          test -s "$LOGO"
+          test -d "$SOURCE_MEDIA/mipmap-hdpi"
+          test -d "$BUILD_RES"
 
-          cp KodiAuto/kodiauto-icon.png \
-            "$RES/drawable-nodpi/kodiauto_icon.png"
+          python3 -m pip install --user --quiet pillow
+          python3 - <<'PY'
+          from pathlib import Path
+          from PIL import Image
+          import os
 
-          cat > "$RES/drawable/ic_launcher_foreground.xml" <<'EOF'
-          <bitmap xmlns:android="http://schemas.android.com/apk/res/android"
+          logo = Path("KodiAuto/kodiauto-icon.png")
+          source_media = Path("kodi/tools/android/packaging/media")
+          source_res = Path("kodi/tools/android/packaging/xbmc/res")
+          build_res = Path("kodi/build/tools/android/packaging/xbmc/res")
+          sizes = {
+              "mipmap-ldpi": 36,
+              "mipmap-mdpi": 48,
+              "mipmap-hdpi": 72,
+              "mipmap-xhdpi": 96,
+              "mipmap-xxhdpi": 144,
+              "mipmap-xxxhdpi": 192,
+          }
+
+          with Image.open(logo) as original:
+              original = original.convert("RGBA")
+              if original.width != original.height:
+                  raise SystemExit("Logo Kodi Auto deve essere quadrato per il launcher")
+              for folder, size in sizes.items():
+                  target = source_media / folder / "ic_launcher.png"
+                  target.parent.mkdir(parents=True, exist_ok=True)
+                  original.resize((size, size), Image.Resampling.LANCZOS).save(target, format="PNG")
+                  generated = build_res / folder / "ic_launcher.png"
+                  generated.parent.mkdir(parents=True, exist_ok=True)
+                  generated.write_bytes(target.read_bytes())
+                  print(f"Launcher raster sostituito: {folder}/ic_launcher.png ({size}px)")
+
+          # L'icona adaptive Android 8+ usa queste risorse, non solo i PNG legacy.
+          for res in (source_res, build_res):
+              nodpi = res / "drawable-nodpi"
+              drawable = res / "drawable"
+              nodpi.mkdir(parents=True, exist_ok=True)
+              drawable.mkdir(parents=True, exist_ok=True)
+              (nodpi / "kodiauto_icon.png").write_bytes(logo.read_bytes())
+              (drawable / "ic_launcher_foreground.xml").write_text(
+                  '''<bitmap xmlns:android="http://schemas.android.com/apk/res/android"
               android:src="@drawable/kodiauto_icon"
-              android:gravity="fill" />
-          EOF
+              android:gravity="fill" />\n''',
+                  encoding="utf-8"
+              )
+              (drawable / "ic_launcher_background.xml").write_text(
+                  '''<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
+              <solid android:color="#FF000000" />
+          </shape>\n''',
+                  encoding="utf-8"
+              )
+              # Rimuove il vecchio simbolo Kodi dalla variante monocromatica:
+              # il launcher userà foreground/background personalizzati.
+              adaptive = source_media / "mipmap-anydpi-v26" / "ic_launcher.xml"
+              if adaptive.exists():
+                  data = adaptive.read_text(encoding="utf-8")
+                  data = data.replace(
+                      '    <monochrome android:drawable="@drawable/ic_monochrome_foreground"/>\n', ''
+                  )
+                  adaptive.write_text(data, encoding="utf-8")
+              build_adaptive = build_res / "mipmap-anydpi-v26" / "ic_launcher.xml"
+              if build_adaptive.exists():
+                  data = build_adaptive.read_text(encoding="utf-8")
+                  data = data.replace(
+                      '    <monochrome android:drawable="@drawable/ic_monochrome_foreground"/>\n', ''
+                  )
+                  build_adaptive.write_text(data, encoding="utf-8")
 
-          echo "Immagine originale Kodi Auto applicata."
-          test -s "$RES/drawable-nodpi/kodiauto_icon.png"
+          print("Logo Kodi Auto sostituito sia nelle icone mipmap legacy sia nell'adaptive launcher.")
+          PY
+
+          for density in ldpi mdpi hdpi xhdpi xxhdpi xxxhdpi; do
+            test -s "kodi/tools/android/packaging/media/mipmap-$density/ic_launcher.png"
+            test -s "kodi/build/tools/android/packaging/xbmc/res/mipmap-$density/ic_launcher.png"
+          done
+          grep -q 'kodiauto_icon' "$BUILD_RES/drawable/ic_launcher_foreground.xml"
+          grep -q 'ic_launcher' kodi/tools/android/packaging/xbmc/AndroidManifest.xml.in
+
 
       - name: Restore Kodi Auto logo in original Kodi home logo slot
         working-directory: kodi
@@ -642,9 +716,10 @@ jobs:
 
           echo "OK: manifest finale contiene metadati Android Auto e servizio media esportato."
 
-      - name: Upload Kodi APK
+      - name: Upload Kodi APK (also when a verification fails)
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: Kodi-Android-ARM64
           path: kodi/kodiapp-arm64-v8a-debug.apk
-          if-no-files-found: error
+          if-no-files-found: warn
