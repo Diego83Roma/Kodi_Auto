@@ -13,6 +13,7 @@ on:
       - kodiauto-caractivity-resume-test
       - kodiauto-107-108-109-combined
       - kodiauto-110-mirror-test
+      - kodiauto-111-mirror-input-test
 
 jobs:
   build-kodi:
@@ -398,10 +399,11 @@ jobs:
               -e 's/^[[:space:]]*protected void onCreate(/  public void onCreate(/' \
               -e 's/^[[:space:]]*protected void onDestroy(/  public void onDestroy(/' \
             "$SRC/KodiAutoCarActivity.java" > "$SOURCE_DIR/KodiAutoCarActivity.java"
-          for file in KodiMirrorCarService KodiMirrorCarActivity KodiProjectionActivity KodiProjectionService; do
-            sed 's/^package it\\.kodiauto\\.app;$/package it.kodiauto.media;/' \
+          for file in KodiMirrorCarService KodiMirrorCarActivity KodiProjectionActivity KodiProjectionService KodiInputAccessibilityService; do
+            sed 's/^package it[.]kodiauto[.]app;$/package it.kodiauto.media;/' \
               "$SRC/$file.java" > "$SOURCE_DIR/$file.java"
           done
+          cp "$SRC/../../res/xml/kodiauto_accessibility_service.xml" "$PKG_DIR/res/xml/kodiauto_accessibility_service.xml"
           grep -Eq '^[[:space:]]*public void onCreate\(' "$SOURCE_DIR/KodiAutoCarActivity.java"
           grep -Eq '^[[:space:]]*public void onDestroy\(' "$SOURCE_DIR/KodiAutoCarActivity.java"
           ! grep -Eq '^[[:space:]]*protected void onCreate\(' "$SOURCE_DIR/KodiAutoCarActivity.java"
@@ -539,6 +541,21 @@ jobs:
               xml = xml.replace("</application>", """
                   <service android:name=".KodiProjectionService" android:exported="false" android:foregroundServiceType="mediaProjection" />
               </application>""", 1)
+          if 'android:name=".KodiInputAccessibilityService"' not in xml:
+              xml = xml.replace("</application>", """
+                  <service
+                      android:name=".KodiInputAccessibilityService"
+                      android:label="Kodi Auto Input"
+                      android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE"
+                      android:exported="true">
+                      <intent-filter>
+                          <action android:name="android.accessibilityservice.AccessibilityService" />
+                      </intent-filter>
+                      <meta-data
+                          android:name="android.accessibilityservice"
+                          android:resource="@xml/kodiauto_accessibility_service" />
+                  </service>
+              </application>""", 1)
 
           manifest.write_text(xml, encoding="utf-8")
           PY
@@ -552,8 +569,10 @@ jobs:
             "$SOURCE_DIR/KodiMirrorCarService.java" \
             "$SOURCE_DIR/KodiProjectionActivity.java" \
             "$SOURCE_DIR/KodiProjectionService.java" \
+            "$SOURCE_DIR/KodiInputAccessibilityService.java" \
             "$PKG_DIR/libs/aauto.aar" \
-            "$PKG_DIR/res/xml/automotive_app_desc.xml"; do
+            "$PKG_DIR/res/xml/automotive_app_desc.xml" \
+            "$PKG_DIR/res/xml/kodiauto_accessibility_service.xml"; do
             test -s "$file" || { echo "ERRORE: file mancante $file"; exit 1; }
             echo "CHECK OK: $file"
           done
@@ -575,6 +594,8 @@ jobs:
               "KodiMirrorCarService manifest": "KodiMirrorCarService" in manifest,
               "KodiProjectionActivity manifest": "KodiProjectionActivity" in manifest,
               "KodiProjectionService manifest": "KodiProjectionService" in manifest,
+              "KodiInputAccessibilityService manifest": "KodiInputAccessibilityService" in manifest,
+              "Accessibility gesture capability": "canPerformGestures=\"true\"" in (module / "res/xml/kodiauto_accessibility_service.xml").read_text(encoding="utf-8"),
               "MediaProjection permission": "FOREGROUND_SERVICE_MEDIA_PROJECTION" in manifest,
               "MediaProjection service type": 'foregroundServiceType="mediaProjection"' in manifest,
               "Car Projection category": "CATEGORY_PROJECTION" in manifest,
@@ -785,6 +806,10 @@ jobs:
             echo "ERRORE: servizio MediaProjection assente dal manifest finale"
             exit 1
           }
+          grep -Fq 'KodiInputAccessibilityService' /tmp/kodiauto-manifest.txt || {
+            echo "ERRORE: servizio touch/accessibilità assente dal manifest finale"
+            exit 1
+          }
           grep -Fq 'CATEGORY_PROJECTION' /tmp/kodiauto-manifest.txt || {
             echo "ERRORE: categoria Car Projection assente dal manifest finale"
             exit 1
@@ -802,6 +827,10 @@ jobs:
           }
           grep -Fq 'it/kodiauto/media/KodiAutoCarService' /tmp/kodiauto-dex-strings.txt || {
             echo "ERRORE: KodiAutoCarService non compilata nei DEX"
+            exit 1
+          }
+          grep -Fq 'it/kodiauto/media/KodiInputAccessibilityService' /tmp/kodiauto-dex-strings.txt || {
+            echo "ERRORE: KodiInputAccessibilityService non compilata nei DEX"
             exit 1
           }
 
