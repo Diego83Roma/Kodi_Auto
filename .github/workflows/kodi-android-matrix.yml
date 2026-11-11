@@ -403,7 +403,7 @@ jobs:
             sed 's/^package it[.]kodiauto[.]app;$/package it.kodiauto.media;/' \
               "$SRC/$file.java" > "$SOURCE_DIR/$file.java"
           done
-          cp "$SRC/../../res/xml/kodiauto_accessibility_service.xml" "$PKG_DIR/res/xml/kodiauto_accessibility_service.xml"
+          cp "$SRC/../../../../res/xml/kodiauto_accessibility_service.xml" "$PKG_DIR/res/xml/kodiauto_accessibility_service.xml"
           grep -Eq '^[[:space:]]*public void onCreate\(' "$SOURCE_DIR/KodiAutoCarActivity.java"
           grep -Eq '^[[:space:]]*public void onDestroy\(' "$SOURCE_DIR/KodiAutoCarActivity.java"
           ! grep -Eq '^[[:space:]]*protected void onCreate\(' "$SOURCE_DIR/KodiAutoCarActivity.java"
