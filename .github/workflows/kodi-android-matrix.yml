@@ -12,6 +12,7 @@ on:
       - kodiauto-carapi-99
       - kodiauto-caractivity-resume-test
       - kodiauto-107-108-109-combined
+      - kodiauto-110-mirror-test
 
 jobs:
   build-kodi:
@@ -397,6 +398,10 @@ jobs:
               -e 's/^[[:space:]]*protected void onCreate(/  public void onCreate(/' \
               -e 's/^[[:space:]]*protected void onDestroy(/  public void onDestroy(/' \
             "$SRC/KodiAutoCarActivity.java" > "$SOURCE_DIR/KodiAutoCarActivity.java"
+          for file in KodiMirrorCarService KodiMirrorCarActivity KodiProjectionActivity KodiProjectionService; do
+            sed 's/^package it\\.kodiauto\\.app;$/package it.kodiauto.media;/' \
+              "$SRC/$file.java" > "$SOURCE_DIR/$file.java"
+          done
           grep -Eq '^[[:space:]]*public void onCreate\(' "$SOURCE_DIR/KodiAutoCarActivity.java"
           grep -Eq '^[[:space:]]*public void onDestroy\(' "$SOURCE_DIR/KodiAutoCarActivity.java"
           ! grep -Eq '^[[:space:]]*protected void onCreate\(' "$SOURCE_DIR/KodiAutoCarActivity.java"
@@ -444,6 +449,7 @@ jobs:
               "android.permission.INTERNET",
               "android.permission.FOREGROUND_SERVICE",
               "android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK",
+              "android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION",
               "androidx.car.app.ACCESS_SURFACE",
               "androidx.car.app.NAVIGATION_TEMPLATES",
               "android.permission.WAKE_LOCK",
@@ -515,6 +521,25 @@ jobs:
                   raise SystemExit("Chiusura application assente o non univoca")
               xml = xml.replace("</application>", car_service + "\n    </application>", 1)
 
+          if 'android:name=".KodiMirrorCarService"' not in xml:
+              xml = xml.replace("</application>", """
+                  <service android:name=".KodiMirrorCarService" android:exported="true" android:label="Kodi Auto Mirror">
+                      <intent-filter>
+                          <action android:name="android.intent.action.MAIN" />
+                          <category android:name="com.google.android.gms.car.category.CATEGORY_PROJECTION" />
+                          <category android:name="com.google.android.gms.car.category.CATEGORY_PROJECTION_OEM" />
+                      </intent-filter>
+                  </service>
+              </application>""", 1)
+          if 'android:name=".KodiProjectionActivity"' not in xml:
+              xml = xml.replace("</application>", """
+                  <activity android:name=".KodiProjectionActivity" android:excludeFromRecents="true" android:exported="false" />
+              </application>""", 1)
+          if 'android:name=".KodiProjectionService"' not in xml:
+              xml = xml.replace("</application>", """
+                  <service android:name=".KodiProjectionService" android:exported="false" android:foregroundServiceType="mediaProjection" />
+              </application>""", 1)
+
           manifest.write_text(xml, encoding="utf-8")
           PY
 
@@ -523,6 +548,10 @@ jobs:
             "$SOURCE_DIR/KodiJsonRpcClient.kt" \
             "$SOURCE_DIR/KodiAutoCarActivity.java" \
             "$SOURCE_DIR/KodiAutoCarService.java" \
+            "$SOURCE_DIR/KodiMirrorCarActivity.java" \
+            "$SOURCE_DIR/KodiMirrorCarService.java" \
+            "$SOURCE_DIR/KodiProjectionActivity.java" \
+            "$SOURCE_DIR/KodiProjectionService.java" \
             "$PKG_DIR/libs/aauto.aar" \
             "$PKG_DIR/res/xml/automotive_app_desc.xml"; do
             test -s "$file" || { echo "ERRORE: file mancante $file"; exit 1; }
@@ -543,6 +572,11 @@ jobs:
               "MediaSessionService manifest": "MediaSessionService" in manifest,
               "MediaBrowserService manifest": "MediaBrowserService" in manifest,
               "KodiAutoCarService manifest": "KodiAutoCarService" in manifest,
+              "KodiMirrorCarService manifest": "KodiMirrorCarService" in manifest,
+              "KodiProjectionActivity manifest": "KodiProjectionActivity" in manifest,
+              "KodiProjectionService manifest": "KodiProjectionService" in manifest,
+              "MediaProjection permission": "FOREGROUND_SERVICE_MEDIA_PROJECTION" in manifest,
+              "MediaProjection service type": 'foregroundServiceType="mediaProjection"' in manifest,
               "Car Projection category": "CATEGORY_PROJECTION" in manifest,
               "Car App minimum API metadata": bool(re.search(
                   r'androidx\.car\.app\.minCarApiLevel.{0,160}android:value="5"',
@@ -741,6 +775,14 @@ jobs:
           }
           grep -Fq 'KodiAutoCarService' /tmp/kodiauto-manifest.txt || {
             echo "ERRORE: servizio Car Projection assente dal manifest finale"
+            exit 1
+          }
+          grep -Fq 'KodiMirrorCarService' /tmp/kodiauto-manifest.txt || {
+            echo "ERRORE: servizio Kodi Mirror assente dal manifest finale"
+            exit 1
+          }
+          grep -Fq 'KodiProjectionService' /tmp/kodiauto-manifest.txt || {
+            echo "ERRORE: servizio MediaProjection assente dal manifest finale"
             exit 1
           }
           grep -Fq 'CATEGORY_PROJECTION' /tmp/kodiauto-manifest.txt || {
