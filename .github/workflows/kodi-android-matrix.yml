@@ -369,13 +369,7 @@ jobs:
         run: |
           make -C tools/depends/target/cmakebuildsys
 
-      - name: Build Kodi
-        working-directory: kodi
-        run: |
-          cd build
-          make -j2
-
-      - name: Integrate Android Auto and Fermata Car Projection after native build
+      - name: Preflight and integrate Android Auto and Fermata before native Kodi build
         run: |
           set -euo pipefail
           PKG_DIR="kodi/build/tools/android/packaging/xbmc"
@@ -517,16 +511,35 @@ jobs:
             echo "CHECK OK: $file"
           done
 
-          grep -q 'MediaLibraryService' "$PKG_DIR/AndroidManifest.xml"
-          grep -q 'MediaSessionService' "$PKG_DIR/AndroidManifest.xml"
-          grep -q 'MediaBrowserService' "$PKG_DIR/AndroidManifest.xml"
-          grep -q 'KodiAutoCarService' "$PKG_DIR/AndroidManifest.xml"
-          grep -q 'CATEGORY_PROJECTION' "$PKG_DIR/AndroidManifest.xml"
-          grep -q 'aauto.aar' "$PKG_DIR/build.gradle"
-          grep -q 'androidx.car.app:app:1.7.0' "$PKG_DIR/build.gradle"
-          grep -q '<uses name="projection" />' "$PKG_DIR/res/xml/automotive_app_desc.xml"
-          echo "CHECK OK: sorgenti Java/Kotlin, MediaLibrary e Car Projection pronte per il packaging."
+          check_contains() {
+            local label="$1"
+            local file="$2"
+            local pattern="$3"
+            if ! grep -Fq -- "$pattern" "$file"; then
+              echo "ERRORE PREFLIGHT: $label non trovato in $file"
+              echo "--- contenuto rilevante di $file ---"
+              grep -n -E 'Media|KodiAuto|CATEGORY|projection|car.app|aauto' "$file" || true
+              exit 1
+            fi
+            echo "PREFLIGHT OK: $label"
+          }
 
+          check_contains "MediaLibraryService" "$PKG_DIR/AndroidManifest.xml" "MediaLibraryService"
+          check_contains "MediaSessionService" "$PKG_DIR/AndroidManifest.xml" "MediaSessionService"
+          check_contains "MediaBrowserService" "$PKG_DIR/AndroidManifest.xml" "MediaBrowserService"
+          check_contains "KodiAutoCarService" "$PKG_DIR/AndroidManifest.xml" "KodiAutoCarService"
+          check_contains "categoria Car Projection" "$PKG_DIR/AndroidManifest.xml" "CATEGORY_PROJECTION"
+          check_contains "libreria AAR Fermata" "$PKG_DIR/build.gradle" "aauto.aar"
+          check_contains "dipendenza Car App" "$PKG_DIR/build.gradle" "androidx.car.app:app:1.7.0"
+          check_contains "dichiarazione projection" "$PKG_DIR/res/xml/automotive_app_desc.xml" '<uses name="projection" />'
+          echo "PREFLIGHT COMPLETATO: sorgenti Java/Kotlin, MediaLibrary e Car Projection pronte prima di Build Kodi."
+
+
+      - name: Build Kodi
+        working-directory: kodi
+        run: |
+          cd build
+          make -j2
 
       - name: Package Kodi APK
         working-directory: kodi/build
