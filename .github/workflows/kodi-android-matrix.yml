@@ -34,7 +34,7 @@ jobs:
           sudo apt-get install -y \
             autoconf bison build-essential curl flex gawk gperf git \
             lib32stdc++6 lib32z1 lib32z1-dev libcurl4-openssl-dev \
-            unzip zip zlib1g-dev
+            unzip zip zlib1g-dev python3-pil
 
       - name: Install Android SDK and NDK
         run: |
@@ -206,7 +206,6 @@ jobs:
           test -d "$SOURCE_MEDIA/mipmap-hdpi"
           test -d "$BUILD_RES"
 
-          python3 -m pip install --user --quiet pillow
           python3 - <<'PY'
           from pathlib import Path
           from PIL import Image
@@ -282,7 +281,7 @@ jobs:
             test -s "kodi/build/tools/android/packaging/xbmc/res/mipmap-$density/ic_launcher.png"
           done
           grep -q 'kodiauto_icon' "$BUILD_RES/drawable/ic_launcher_foreground.xml"
-          grep -q 'ic_launcher' kodi/tools/android/packaging/xbmc/AndroidManifest.xml.in
+          grep -Fq 'android:icon="@mipmap/ic_launcher"' kodi/tools/android/packaging/xbmc/AndroidManifest.xml.in
 
 
       - name: Restore Kodi Auto logo in original Kodi home logo slot
@@ -663,6 +662,79 @@ jobs:
           fi
 
           echo "OK: Kodi Auto ha un package ID separato!"
+
+          echo "Verifica che l'icona personalizzata sia realmente inclusa nell'APK:"
+          ICON_ENTRY=$(unzip -Z1 "$APK" | grep -E '^res/drawable-nodpi(-v[0-9]+)?/kodiauto_icon\.png          "$AAPT" dump xmltree "$APK" AndroidManifest.xml > /tmp/kodiauto-manifest.txt
+
+          echo "Elementi Android Auto rilevati nel manifest:"
+          grep -E 'com.google.android.gms.car.application|KodiAutoMediaLibraryService|MediaLibraryService|MediaSessionService|MediaBrowserService' /tmp/kodiauto-manifest.txt || true
+
+          grep -Fq 'com.google.android.gms.car.application' /tmp/kodiauto-manifest.txt || {
+            echo "ERRORE: metadata Android Auto assente dal manifest finale"
+            exit 1
+          }
+          grep -Fq 'KodiAutoMediaLibraryService' /tmp/kodiauto-manifest.txt || {
+            echo "ERRORE: servizio Kodi Auto assente dal manifest finale"
+            exit 1
+          }
+          grep -Fq 'MediaLibraryService' /tmp/kodiauto-manifest.txt || {
+            echo "ERRORE: action MediaLibraryService assente dal manifest finale"
+            exit 1
+          }
+          grep -Fq 'MediaBrowserService' /tmp/kodiauto-manifest.txt || {
+            echo "ERRORE: action MediaBrowserService assente dal manifest finale"
+            exit 1
+          }
+          grep -Fq 'MediaSessionService' /tmp/kodiauto-manifest.txt || {
+            echo "ERRORE: action MediaSessionService assente dal manifest finale"
+            exit 1
+          }
+          grep -Fq 'KodiAutoCarService' /tmp/kodiauto-manifest.txt || {
+            echo "ERRORE: servizio Car Projection assente dal manifest finale"
+            exit 1
+          }
+          grep -Fq 'CATEGORY_PROJECTION' /tmp/kodiauto-manifest.txt || {
+            echo "ERRORE: categoria Car Projection assente dal manifest finale"
+            exit 1
+          }
+
+          echo "Verifica classi Car Projection compilate nei DEX:"
+          unzip -p "$APK" 'classes*.dex' | strings > /tmp/kodiauto-dex-strings.txt
+          grep -Fq 'it/kodiauto/media/KodiAutoMediaLibraryService' /tmp/kodiauto-dex-strings.txt || {
+            echo "ERRORE: KodiAutoMediaLibraryService non compilata nei DEX"
+            exit 1
+          }
+          grep -Fq 'it/kodiauto/media/KodiAutoCarActivity' /tmp/kodiauto-dex-strings.txt || {
+            echo "ERRORE: KodiAutoCarActivity non compilata nei DEX"
+            exit 1
+          }
+          grep -Fq 'it/kodiauto/media/KodiAutoCarService' /tmp/kodiauto-dex-strings.txt || {
+            echo "ERRORE: KodiAutoCarService non compilata nei DEX"
+            exit 1
+          }
+
+          echo "OK: manifest finale contiene metadati Android Auto e servizio media esportato."
+
+      - name: Upload Kodi APK (also when a verification fails)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Kodi-Android-ARM64
+          path: kodi/kodiapp-arm64-v8a-debug.apk
+          if-no-files-found: warn
+ | head -n 1 || true)
+          if [ -z "$ICON_ENTRY" ]; then
+            echo "ERRORE: risorsa grafica Kodi Auto non presente nell'APK"
+            unzip -Z1 "$APK" | grep -E 'mipmap|launcher|kodiauto' || true
+            exit 1
+          fi
+          unzip -p "$APK" "$ICON_ENTRY" > /tmp/kodiauto-icon-from-apk.png
+          if ! cmp -s /tmp/kodiauto-icon-from-apk.png KodiAuto/kodiauto-icon.png; then
+            echo "ERRORE: icona nell'APK diversa dal logo Kodi Auto sorgente"
+            exit 1
+          fi
+          echo "OK: icona Kodi Auto originale verificata byte-per-byte nell'APK."
+          "$AAPT" dump badging "$APK" | grep -E 'application-icon|application: label' || true
 
           echo "Verifica manifest Android Auto nell'APK finale:"
           "$AAPT" dump xmltree "$APK" AndroidManifest.xml > /tmp/kodiauto-manifest.txt
