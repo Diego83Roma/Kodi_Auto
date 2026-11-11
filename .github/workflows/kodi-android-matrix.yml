@@ -7,6 +7,7 @@ on:
       - Kodi-engine
       - fermata-integration
       - testF-48-base-carprojection-fermata
+      - kodiauto-logo-fix-98
       - kodiauto-logo-97
 
 jobs:
@@ -193,41 +194,6 @@ jobs:
           assert 'com.google.android.gms.car.category.CATEGORY_PROJECTION' in xml
           print("Template sorgente Kodi aggiornato: metadati e servizio Android Auto presenti.")
           PY
-
-      - name: Apply original Kodi Auto launcher image
-        run: |
-          set -euo pipefail
-          RES="kodi/build/tools/android/packaging/xbmc/res"
-          LOGO="KodiAuto/kodiauto-icon.png"
-
-          test -s "$LOGO"
-          mkdir -p "$RES/drawable-nodpi" "$RES/drawable" \
-            "$RES/mipmap-nodpi" "$RES/mipmap-anydpi-v26"
-
-          # Keep the source image and make it the actual manifest launcher resource.
-          cp "$LOGO" "$RES/drawable-nodpi/kodiauto_icon.png"
-          cp "$LOGO" "$RES/mipmap-nodpi/ic_launcher.png"
-
-          cat > "$RES/drawable/ic_launcher_foreground.xml" <<'EOF'
-          <bitmap xmlns:android="http://schemas.android.com/apk/res/android"
-              android:src="@drawable/kodiauto_icon"
-              android:gravity="fill" />
-          EOF
-
-          # Android 8+ uses the adaptive icon; older Android versions use
-          # mipmap-nodpi/ic_launcher.png. The manifest already points to @mipmap/ic_launcher.
-          cat > "$RES/mipmap-anydpi-v26/ic_launcher.xml" <<'EOF'
-          <adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
-              <background android:drawable="@android:color/black" />
-              <foreground android:drawable="@drawable/ic_launcher_foreground" />
-          </adaptive-icon>
-          EOF
-
-          test -s "$RES/drawable-nodpi/kodiauto_icon.png"
-          test -s "$RES/mipmap-nodpi/ic_launcher.png"
-          grep -q '@drawable/ic_launcher_foreground' "$RES/mipmap-anydpi-v26/ic_launcher.xml"
-          grep -q 'android:icon="@mipmap/ic_launcher"' kodi/tools/android/packaging/xbmc/AndroidManifest.xml.in
-          echo "Logo Kodi Auto collegato alla vera risorsa launcher @mipmap/ic_launcher."
 
       - name: Restore Kodi Auto logo in original Kodi home logo slot
         working-directory: kodi
@@ -568,6 +534,42 @@ jobs:
 
           print("PREFLIGHT COMPLETATO: integrazione Android Auto/Fermata verificata.")
           PY
+
+
+      - name: Apply original Kodi Auto launcher image
+        run: |
+          set -euo pipefail
+          RES="kodi/build/tools/android/packaging/xbmc/res"
+          LOGO="KodiAuto/kodiauto-icon.png"
+
+          test -s "$LOGO"
+          mkdir -p "$RES/drawable-nodpi" "$RES/drawable" \
+            "$RES/mipmap-nodpi" "$RES/mipmap-anydpi-v26"
+
+          # Keep the source image and make it the actual manifest launcher resource.
+          cp "$LOGO" "$RES/drawable-nodpi/kodiauto_icon.png"
+          cp "$LOGO" "$RES/mipmap-nodpi/ic_launcher.png"
+
+          cat > "$RES/drawable/ic_launcher_foreground.xml" <<'EOF'
+          <bitmap xmlns:android="http://schemas.android.com/apk/res/android"
+              android:src="@drawable/kodiauto_icon"
+              android:gravity="fill" />
+          EOF
+
+          # Android 8+ uses the adaptive icon; older Android versions use
+          # mipmap-nodpi/ic_launcher.png. The manifest already points to @mipmap/ic_launcher.
+          cat > "$RES/mipmap-anydpi-v26/ic_launcher.xml" <<'EOF'
+          <adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
+              <background android:drawable="@android:color/black" />
+              <foreground android:drawable="@drawable/ic_launcher_foreground" />
+          </adaptive-icon>
+          EOF
+
+          test -s "$RES/drawable-nodpi/kodiauto_icon.png"
+          test -s "$RES/mipmap-nodpi/ic_launcher.png"
+          grep -q '@drawable/ic_launcher_foreground' "$RES/mipmap-anydpi-v26/ic_launcher.xml"
+          grep -q 'android:icon="@mipmap/ic_launcher"' kodi/tools/android/packaging/xbmc/AndroidManifest.xml.in
+          echo "Logo Kodi Auto collegato alla vera risorsa launcher @mipmap/ic_launcher."
 
 
       - name: Build Kodi
