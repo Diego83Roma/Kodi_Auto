@@ -7,6 +7,7 @@ on:
       - Kodi-engine
       - fermata-integration
       - testF-48-base-carprojection-fermata
+      - kodiauto-lifecycle-logo-test
 
 jobs:
   build-kodi:
@@ -33,7 +34,7 @@ jobs:
           sudo apt-get install -y \
             autoconf bison build-essential curl flex gawk gperf git \
             lib32stdc++6 lib32z1 lib32z1-dev libcurl4-openssl-dev \
-            unzip zip zlib1g-dev
+            unzip zip zlib1g-dev python3-pil
 
       - name: Install Android SDK and NDK
         run: |
@@ -193,23 +194,34 @@ jobs:
           print("Template sorgente Kodi aggiornato: metadati e servizio Android Auto presenti.")
           PY
 
-      - name: Apply original Kodi Auto launcher image
+      - name: Replace Kodi Auto launcher source mipmaps before resource generation
         run: |
-          RES="kodi/build/tools/android/packaging/xbmc/res"
+          set -euo pipefail
+          LOGO="KodiAuto/kodiauto-icon.png"
+          MEDIA="kodi/tools/android/packaging/media"
+          test -s "$LOGO"
+          test -s "$MEDIA/mipmap-anydpi-v26/ic_launcher.xml"
 
-          mkdir -p "$RES/drawable-nodpi" "$RES/drawable"
-
-          cp KodiAuto/kodiauto-icon.png \
-            "$RES/drawable-nodpi/kodiauto_icon.png"
-
-          cat > "$RES/drawable/ic_launcher_foreground.xml" <<'EOF'
-          <bitmap xmlns:android="http://schemas.android.com/apk/res/android"
-              android:src="@drawable/kodiauto_icon"
-              android:gravity="fill" />
+          # Kodi's packaging Makefile recopies media/mipmap-* into xbmc/res
+          # during 'make res'. Replace the source assets before that copy occurs.
+          mkdir -p "$MEDIA/mipmap-nodpi" "$MEDIA/mipmap-anydpi-v26"
+          cp "$LOGO" "$MEDIA/mipmap-nodpi/kodiauto_icon.png"
+          for density in ldpi mdpi hdpi xhdpi xxhdpi xxxhdpi; do
+            mkdir -p "$MEDIA/mipmap-$density"
+            cp "$LOGO" "$MEDIA/mipmap-$density/ic_launcher.png"
+            cmp -s "$LOGO" "$MEDIA/mipmap-$density/ic_launcher.png"
+          done
+          cat > "$MEDIA/mipmap-anydpi-v26/ic_launcher.xml" <<'EOF'
+          <?xml version="1.0" encoding="utf-8"?>
+          <adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
+              <background android:drawable="@android:color/black" />
+              <foreground android:drawable="@mipmap/kodiauto_icon" />
+          </adaptive-icon>
           EOF
-
-          echo "Immagine originale Kodi Auto applicata."
-          test -s "$RES/drawable-nodpi/kodiauto_icon.png"
+          cmp -s "$LOGO" "$MEDIA/mipmap-nodpi/kodiauto_icon.png"
+          grep -q '@mipmap/kodiauto_icon' "$MEDIA/mipmap-anydpi-v26/ic_launcher.xml"
+          grep -q 'android:icon="@mipmap/ic_launcher"' kodi/tools/android/packaging/xbmc/AndroidManifest.xml.in
+          echo "OK: logo sostituito nelle risorse sorgente effettivamente copiate da Kodi."
 
       - name: Restore Kodi Auto logo in original Kodi home logo slot
         working-directory: kodi
