@@ -511,28 +511,45 @@ jobs:
             echo "CHECK OK: $file"
           done
 
-          check_contains() {
-            local label="$1"
-            local file="$2"
-            local pattern="$3"
-            if ! grep -Fq -- "$pattern" "$file"; then
-              echo "ERRORE PREFLIGHT: $label non trovato in $file"
-              echo "--- contenuto rilevante di $file ---"
-              grep -n -E 'Media|KodiAuto|CATEGORY|projection|car.app|aauto' "$file" || true
-              exit 1
-            fi
-            echo "PREFLIGHT OK: $label"
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          module = Path("kodi/build/tools/android/packaging/xbmc")
+          manifest = (module / "AndroidManifest.xml").read_text(encoding="utf-8")
+          gradle = (module / "build.gradle").read_text(encoding="utf-8")
+          desc = (module / "res/xml/automotive_app_desc.xml").read_text(encoding="utf-8")
+
+          checks = {
+              "MediaLibraryService manifest": "MediaLibraryService" in manifest,
+              "MediaSessionService manifest": "MediaSessionService" in manifest,
+              "MediaBrowserService manifest": "MediaBrowserService" in manifest,
+              "KodiAutoCarService manifest": "KodiAutoCarService" in manifest,
+              "Car Projection category": "CATEGORY_PROJECTION" in manifest,
+              "Fermata AAR dependency": "aauto.aar" in gradle,
+              "Car App dependency": "androidx.car.app:app:1.7.0" in gradle,
+              "projection app descriptor": bool(re.search(
+                  r'<uses\\s+name=["\\']projection["\\']\\s*/?>', desc
+              )),
           }
 
-          check_contains "MediaLibraryService" "$PKG_DIR/AndroidManifest.xml" "MediaLibraryService"
-          check_contains "MediaSessionService" "$PKG_DIR/AndroidManifest.xml" "MediaSessionService"
-          check_contains "MediaBrowserService" "$PKG_DIR/AndroidManifest.xml" "MediaBrowserService"
-          check_contains "KodiAutoCarService" "$PKG_DIR/AndroidManifest.xml" "KodiAutoCarService"
-          check_contains "categoria Car Projection" "$PKG_DIR/AndroidManifest.xml" "CATEGORY_PROJECTION"
-          check_contains "libreria AAR Fermata" "$PKG_DIR/build.gradle" "aauto.aar"
-          check_contains "dipendenza Car App" "$PKG_DIR/build.gradle" "androidx.car.app:app:1.7.0"
-          check_contains "dichiarazione projection" "$PKG_DIR/res/xml/automotive_app_desc.xml" '<uses name="projection" />'
-          echo "PREFLIGHT COMPLETATO: sorgenti Java/Kotlin, MediaLibrary e Car Projection pronte prima di Build Kodi."
+          for label, ok in checks.items():
+              print(("PREFLIGHT OK: " if ok else "PREFLIGHT MISSING: ") + label)
+
+          missing = [label for label, ok in checks.items() if not ok]
+          if missing:
+              print("Manifest (righe Android Auto):")
+              for number, line in enumerate(manifest.splitlines(), 1):
+                  if re.search(r'Media|KodiAuto|CATEGORY_PROJECTION|car.application', line):
+                      print(f"{number}: {line.strip()}")
+              print("Gradle (dipendenze):")
+              for number, line in enumerate(gradle.splitlines(), 1):
+                  if re.search(r'aauto|car.app|media3|guava', line):
+                      print(f"{number}: {line.strip()}")
+              raise SystemExit("Preflight non superato: " + ", ".join(missing))
+
+          print("PREFLIGHT COMPLETATO: integrazione Android Auto/Fermata verificata.")
+          PY
 
 
       - name: Build Kodi
