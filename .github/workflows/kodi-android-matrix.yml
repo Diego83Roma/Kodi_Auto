@@ -659,7 +659,7 @@ jobs:
           blocks = []
           current = []
           for line in lines:
-              if re.match(r"\\s*E:", line):
+              if re.match(r"\s*E:", line):
                   if current:
                       blocks.append(current)
                   current = [line]
@@ -670,7 +670,7 @@ jobs:
 
           found = False
           for block in blocks:
-              joined = "\\n".join(block)
+              joined = "\n".join(block)
               if "androidx.car.app.minCarApiLevel" not in joined:
                   continue
               value_lines = [line for line in block if "android:value" in line]
@@ -678,7 +678,7 @@ jobs:
               print(joined)
               # aapt versions format typed integer metadata differently:
               # e.g. '=0x00000005' or '=(type 0x10)0x5'.
-              if any(re.search(r"(?:0x0*5\\b|(?<![\\w])5\\b)", line) for line in value_lines):
+              if any(re.search(r"(?:0x0*5\b|(?<![\w])5\b)", line) for line in value_lines):
                   found = True
                   break
 
