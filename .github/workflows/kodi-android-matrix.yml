@@ -9,6 +9,7 @@ on:
       - testF-48-base-carprojection-fermata
       - kodiauto-logo-fix-98
       - kodiauto-logo-97
+      - kodiauto-carapi-99
 
 jobs:
   build-kodi:
