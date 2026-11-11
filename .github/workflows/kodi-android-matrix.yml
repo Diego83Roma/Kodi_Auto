@@ -475,7 +475,7 @@ jobs:
               if count != 1:
                   raise SystemExit("minCarApiLevel non inserito nel manifest generato")
           if not re.search(
-              r'<meta-data[^>]+android:name="androidx\\.car\\.app\\.minCarApiLevel"[^>]+android:value="5"',
+              r'<meta-data[^>]+android:name="androidx\.car\.app\.minCarApiLevel"[^>]+android:value="5"',
               xml
           ):
               raise SystemExit("Manifest generato senza minCarApiLevel=5")
