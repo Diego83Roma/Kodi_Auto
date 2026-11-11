@@ -134,6 +134,22 @@ jobs:
               if count != 1:
                   raise SystemExit("Impossibile inserire metadata Android Auto nel template")
 
+          # Match Fermata Auto: declare the minimum supported Car App API level.
+          if 'androidx.car.app.minCarApiLevel' not in xml:
+              xml, count = re.subn(
+                  r'(<application\\b[^>]*>)',
+                  r'\\1\\n<meta-data android:name="androidx.car.app.minCarApiLevel" android:value="5" />',
+                  xml,
+                  count=1
+              )
+              if count != 1:
+                  raise SystemExit("Impossibile inserire minCarApiLevel nel template Kodi")
+          if not re.search(
+              r'<meta-data[^>]+android:name="androidx\\.car\\.app\\.minCarApiLevel"[^>]+android:value="5"',
+              xml
+          ):
+              raise SystemExit("minCarApiLevel=5 non presente nel template Kodi")
+
           if 'android:name=".KodiAutoMediaLibraryService"' not in xml:
               service = """
           <service
@@ -448,6 +464,21 @@ jobs:
               if count != 1:
                   raise SystemExit("Metadata Android Auto non inserito")
 
+          if 'androidx.car.app.minCarApiLevel' not in xml:
+              xml, count = re.subn(
+                  r'(<application\\b[\\s\\S]*?>)',
+                  r'\\1\\n        <meta-data android:name="androidx.car.app.minCarApiLevel" android:value="5" />',
+                  xml,
+                  count=1
+              )
+              if count != 1:
+                  raise SystemExit("minCarApiLevel non inserito nel manifest generato")
+          if not re.search(
+              r'<meta-data[^>]+android:name="androidx\\.car\\.app\\.minCarApiLevel"[^>]+android:value="5"',
+              xml
+          ):
+              raise SystemExit("Manifest generato senza minCarApiLevel=5")
+
           if 'android:name=".KodiAutoMediaLibraryService"' not in xml:
               media_service = '''
                   <service
@@ -510,6 +541,10 @@ jobs:
               "MediaBrowserService manifest": "MediaBrowserService" in manifest,
               "KodiAutoCarService manifest": "KodiAutoCarService" in manifest,
               "Car Projection category": "CATEGORY_PROJECTION" in manifest,
+              "Car App minimum API metadata": bool(re.search(
+                  r'androidx\\.car\\.app\\.minCarApiLevel.{0,160}android:value="5"',
+                  manifest
+              )),
               "Fermata AAR dependency": "aauto.aar" in gradle,
               "Car App dependency": "androidx.car.app:app:1.7.0" in gradle,
               "projection app descriptor": bool(re.search(
@@ -616,6 +651,14 @@ jobs:
           echo "Elementi Android Auto rilevati nel manifest:"
           grep -E 'com.google.android.gms.car.application|KodiAutoMediaLibraryService|MediaLibraryService|MediaSessionService|MediaBrowserService' /tmp/kodiauto-manifest.txt || true
 
+          grep -Fq 'androidx.car.app.minCarApiLevel' /tmp/kodiauto-manifest.txt || {
+            echo "ERRORE: metadata androidx.car.app.minCarApiLevel assente dal manifest finale"
+            exit 1
+          }
+          grep -Fq 'android:value(0x01010024)=0x00000005' /tmp/kodiauto-manifest.txt || {
+            echo "ERRORE: valore minCarApiLevel=5 assente dal manifest finale"
+            exit 1
+          }
           grep -Fq 'com.google.android.gms.car.application' /tmp/kodiauto-manifest.txt || {
             echo "ERRORE: metadata Android Auto assente dal manifest finale"
             exit 1
