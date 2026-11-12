@@ -188,7 +188,7 @@ jobs:
           """
               if xml.count("</application>") != 1:
                   raise SystemExit("Chiusura application assente o non univoca nel template Kodi")
-              xml = xml.replace("</application>", service + "\\n</application>", 1)
+              xml = xml.replace("</application>", service + "\n</application>", 1)
 
           manifest.write_text(xml, encoding="utf-8")
           assert 'com.google.android.gms.car.application' in xml
