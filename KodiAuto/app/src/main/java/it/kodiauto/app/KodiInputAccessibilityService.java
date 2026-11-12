@@ -2,12 +2,14 @@ package it.kodiauto.app;
 
 import android.accessibilityservice.AccessibilityService;
 import android.accessibilityservice.GestureDescription;
-import android.content.Context;
 import android.graphics.Path;
 import android.os.Build;
 import android.view.accessibility.AccessibilityEvent;
 
-/** Receives Android Auto touch gestures and replays them on the phone's Kodi display. */
+/**
+ * Accessibility input bridge for the Android Auto mirror.
+ * It intentionally does not inspect Kodi's window content.
+ */
 public final class KodiInputAccessibilityService extends AccessibilityService {
     private static volatile KodiInputAccessibilityService instance;
 
@@ -20,11 +22,22 @@ public final class KodiInputAccessibilityService extends AccessibilityService {
         if (service == null || path == null || Build.VERSION.SDK_INT < Build.VERSION_CODES.N) {
             return false;
         }
-        long duration = Math.max(50L, Math.min(60000L, durationMs));
+        long duration = Math.max(1L, Math.min(
+                GestureDescription.getMaxGestureDuration(), durationMs));
         GestureDescription gesture = new GestureDescription.Builder()
-                .addStroke(new GestureDescription.StrokeDescription(path, 0L, duration))
+                .addStroke(new GestureDescription.StrokeDescription(new Path(path), 0L, duration))
                 .build();
         return service.dispatchGesture(gesture, null, null);
+    }
+
+    static boolean dispatchBack() {
+        KodiInputAccessibilityService service = instance;
+        return service != null && service.performGlobalAction(GLOBAL_ACTION_BACK);
+    }
+
+    static boolean dispatchHome() {
+        KodiInputAccessibilityService service = instance;
+        return service != null && service.performGlobalAction(GLOBAL_ACTION_HOME);
     }
 
     @Override
@@ -36,12 +49,12 @@ public final class KodiInputAccessibilityService extends AccessibilityService {
 
     @Override
     public void onAccessibilityEvent(AccessibilityEvent event) {
-        // The service is used only as an input injection endpoint.
+        // Input-only service: no window text or content is collected.
     }
 
     @Override
     public void onInterrupt() {
-        // No continuous feedback stream to interrupt.
+        // No continuous event stream to interrupt.
     }
 
     @Override
