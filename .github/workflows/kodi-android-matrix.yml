@@ -401,6 +401,7 @@ jobs:
               "KodiProjectionActivity manifest": "KodiProjectionActivity" in manifest,
               "KodiProjectionService manifest": "KodiProjectionService" in manifest,
               "KodiInputAccessibilityService manifest": "KodiInputAccessibilityService" in manifest,
+              "Legacy media library removed": not any(x in manifest for x in ("KodiAutoMediaLibraryService", "MediaLibraryService", "MediaSessionService", "MediaBrowserService", "KodiAutoCarService")),
               "Accessibility gesture capability": "canPerformGestures=\"true\"" in (module / "res/xml/kodiauto_accessibility_service.xml").read_text(encoding="utf-8"),
               "MediaProjection permission": "FOREGROUND_SERVICE_MEDIA_PROJECTION" in manifest,
               "MediaProjection service type": 'foregroundServiceType="mediaProjection"' in manifest,
@@ -606,10 +607,12 @@ jobs:
 
           echo "Verifica classi Kodi Mirror compilate nei DEX:"
           unzip -p "$APK" 'classes*.dex' | strings > /tmp/kodiauto-dex-strings.txt
-          grep -Fq 'it/kodiauto/media/KodiInputAccessibilityService' /tmp/kodiauto-dex-strings.txt || {
-            echo "ERRORE: KodiInputAccessibilityService non compilata nei DEX"
-            exit 1
-          }
+          for CLASS in KodiMirrorCarActivity KodiMirrorCarService KodiProjectionActivity KodiProjectionService KodiInputAccessibilityService; do
+            grep -Fq "it/kodiauto/media/$CLASS" /tmp/kodiauto-dex-strings.txt || {
+              echo "ERRORE: $CLASS non compilata nei DEX"
+              exit 1
+            }
+          done
 
           echo "OK: manifest finale contiene il servizio Android Auto Mirror e i componenti di proiezione/input."
 
