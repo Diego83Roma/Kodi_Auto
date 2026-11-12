@@ -173,8 +173,26 @@ jobs:
                   if count != 1:
                       raise SystemExit(f"Impossibile aggiungere permesso Car Projection: {permission}")
 
+          if 'android:name=".KodiMirrorCarService"' not in xml:
+              service = """
+          <service
+              android:name=".KodiMirrorCarService"
+              android:exported="true"
+              android:label="Kodi Auto Mirror">
+              <intent-filter>
+                  <action android:name="android.intent.action.MAIN" />
+                  <category android:name="com.google.android.gms.car.category.CATEGORY_PROJECTION" />
+                  <category android:name="com.google.android.gms.car.category.CATEGORY_PROJECTION_OEM" />
+              </intent-filter>
+          </service>
+          """
+              if xml.count("</application>") != 1:
+                  raise SystemExit("Chiusura application assente o non univoca nel template Kodi")
+              xml = xml.replace("</application>", service + "\\n</application>", 1)
+
           manifest.write_text(xml, encoding="utf-8")
           assert 'com.google.android.gms.car.application' in xml
+          assert 'android:name=".KodiMirrorCarService"' in xml
           assert 'com.google.android.gms.car.category.CATEGORY_PROJECTION' in xml
           print("Template sorgente Kodi aggiornato: metadati e servizio Android Auto presenti.")
           PY
